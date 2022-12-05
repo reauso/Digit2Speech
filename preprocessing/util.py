@@ -27,7 +27,7 @@ def get_parts_from_file_path(file_path):
     parts = file_name.split("_")
     language = parts[0].split("-")[1]
     speaker = parts[1].split("-")[1]
-    digit = parts[2].split("-")[1]
+    digit = int(parts[2].split("-")[1])
     trial = parts[3].split("-")[1].split(".")[0]
     return language, speaker, digit, trial
 
