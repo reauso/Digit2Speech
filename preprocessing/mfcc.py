@@ -1,0 +1,45 @@
+import os
+
+import librosa
+import numpy as np
+import util
+from tqdm import tqdm
+
+
+def calculate_mfcc_for_trial(trial_file,  n_mfcc=50):
+    audio_samples, audio_sampling_rate = librosa.load(
+        trial_file, sr=librosa.get_samplerate(trial_file), mono=True)
+
+    # best for speech processing
+    n_fft = int((audio_sampling_rate / 22050) * 512)
+
+    hop_length = len(audio_samples)+1
+    mfcc_coefficients = librosa.feature.mfcc(y=audio_samples, sr=audio_sampling_rate, n_mfcc=n_mfcc,
+                                             n_fft=n_fft, hop_length=hop_length)
+    return np.transpose(mfcc_coefficients, (1, 0))
+
+
+def save_mfcc_for_trials():
+    os.chdir(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+    samples_directory = os.path.join(os.getcwd(), 'Dataset', 'samples')
+
+    # get all audio files
+    audio_files = util.files_in_directory(
+        samples_directory, file_patterns="**/*.wav", recursive=True)
+
+    print('Found {} Audio Files'.format(len(audio_files)))
+
+    for file in tqdm(audio_files):
+        trial_name = os.path.splitext(os.path.basename(file))[0]
+        n_mfcc = 50
+
+        mfcc_file = os.path.join(os.path.dirname(
+            file), '{}_mfcc_{}'.format(trial_name, n_mfcc))
+
+        mfcc_coefficients = calculate_mfcc_for_trial(file, n_mfcc=n_mfcc)
+
+        np.save(mfcc_file, mfcc_coefficients)
+
+
+if __name__ == '__main__':
+    save_mfcc_for_trials()
