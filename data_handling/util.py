@@ -22,7 +22,7 @@ def get_audio_file_path(folder, language, speaker, digit, trial):
     return os.path.join(folder, f"lang-{language}_speaker-{speaker}_digit-{digit}_trial-{trial}.wav")
 
 
-def get_parts_from_file_path(file_path):
+def get_metadata_from_file_name(file_path):
     file_name = os.path.basename(file_path)
     parts = file_name.split("_")
     language = parts[0].split("-")[1]

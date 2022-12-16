@@ -2,7 +2,7 @@ import os
 
 import librosa
 import numpy as np
-import util
+from data_handling import util
 from tqdm import tqdm
 
 
@@ -20,7 +20,6 @@ def calculate_mfcc_for_trial(trial_file,  n_mfcc=50):
 
 
 def save_mfcc_for_trials():
-    os.chdir(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     samples_directory = os.path.join(os.getcwd(), 'Dataset', 'samples')
 
     # get all audio files
@@ -34,7 +33,7 @@ def save_mfcc_for_trials():
         n_mfcc = 50
 
         mfcc_file = os.path.join(os.path.dirname(
-            file), '{}_mfcc_{}'.format(trial_name, n_mfcc))
+            file), '{}_mfcc_{}.npy'.format(trial_name, n_mfcc))
 
         mfcc_coefficients = calculate_mfcc_for_trial(file, n_mfcc=n_mfcc)
 
@@ -42,4 +41,6 @@ def save_mfcc_for_trials():
 
 
 if __name__ == '__main__':
+    os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+
     save_mfcc_for_trials()

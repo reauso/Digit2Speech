@@ -2,10 +2,10 @@ import os
 
 import librosa
 import numpy as np
-from scipy.signal import argrelmin, argrelmax
+from scipy.signal import argrelmin
 from tqdm import tqdm
 
-import util
+from data_handling import util
 
 
 def trial_midpoint_indices_in_signal(signal, sample_rate):
@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     for file in tqdm(audio_files):
         # metadata of current file
-        language, speaker, digit, _ = util.get_parts_from_file_path(file)
+        language, speaker, digit, _ = util.get_metadata_from_file_name(file)
 
         # load file
         signal, sample_rate = librosa.load(file, sr=librosa.get_samplerate(file))
