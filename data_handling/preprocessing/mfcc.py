@@ -1,5 +1,4 @@
 import os
-
 import librosa
 import numpy as np
 from data_handling import util
@@ -24,7 +23,7 @@ def save_mfcc_for_trials():
 
     # get all audio files
     audio_files = util.files_in_directory(
-        samples_directory, file_patterns="**/*.wav", recursive=True)
+        samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 
     print('Found {} Audio Files'.format(len(audio_files)))
 
@@ -40,7 +39,3 @@ def save_mfcc_for_trials():
         np.save(mfcc_file, mfcc_coefficients)
 
 
-if __name__ == '__main__':
-    os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
-
-    save_mfcc_for_trials()

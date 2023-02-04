@@ -44,8 +44,8 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         f.close()
 
         # check for valid data pairs in path
-        audio_files = files_in_directory(self.path, '*.wav', recursive=True)
-        for file in audio_files:
+        self.audio_files = files_in_directory(self.path,['**/*.wav', "**/*.flac"], recursive=True)
+        for file in self.audio_files:
             data_pair_name = os.path.splitext(os.path.basename(file))[0]
             data_pair_files_dir = os.path.dirname(file)
             data_pair_base_path = os.path.join(data_pair_files_dir, data_pair_name)
