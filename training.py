@@ -1,65 +1,85 @@
+import os
 import time
 import numpy as np
-from model.SirenModel import SirenModelWithFiLM
-import os
 import torch
 import torch.nn as nn
-from torch.utils.data import random_split
 from ray import tune
+from torch.utils.data import DataLoader
+
+from data_handling.Dataset import DigitAudioDataset
+from model.SirenModel import SirenModelWithFiLM
 
 
 def train(config, checkpoint_dir=None):
+    torch.multiprocessing.set_start_method('spawn')
 
-    if config["modulation_type"] == "DeepSpeech":
-        config["SIREN_mod_features"] = config["deepspeech_past"] + 1 + config["deepspeech_future"] * 29
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
-    net = SirenModelWithFiLM(in_features=2,
-                             hidden_features=config["SIREN_hidden_features"],
-                             num_layers=config["SIREN_num_layers"],
-                             out_features=3,
-                             mod_features=config["SIREN_mod_features"])
+    # create datasets and data loaders
+    train_dataset = DigitAudioDataset(
+        path=config['training_dataset_path'],
+        audio_sample_coverage=config['audio_sample_coverage'].sample(),
+        shuffle_audio_samples=config['shuffle_audio_samples'],
+        num_mfcc=config['num_mfccs'],
+        feature_mapping_file=config['feature_mapping_file'],
+    )
+    train_dataset_loader = DataLoader(train_dataset, batch_size=config['batch_size'],
+                                      shuffle=config['shuffle_audio_files'], num_workers=0, drop_last=False)
 
-    device = "cpu"
-    if torch.cuda.is_available():
-        device = "cuda:0"
-        if torch.cuda.device_count() > 1:
-            net = nn.DataParallel(net)
-    net.to(device)
+    '''validation_dataset = DigitAudioDataset(
+        path=config['validation_dataset_path'],
+        audio_sample_coverage=1.0,
+        shuffle_audio_samples=False,
+        num_mfcc=config['num_mfccs'],
+        feature_mapping_file=config['feature_mapping_file'],
+    )
+    validation_dataset_loader = DataLoader(validation_dataset, batch_size=config['batch_size'],
+                                           shuffle=False, num_workers=0, drop_last=False)'''
 
-    criterion = LossCombination(l1=config["loss_L1"],
-                                mse=config["loss_MSE"],
-                                vgg=config["loss_VGG"],
-                                ssim=config["loss_SSIM"],
-                                masked_mse=config["loss_maskedMSE"]
-                                ).compute
-    optimizer = torch.optim.Adam(lr=config["lr"], params=net.parameters())
+    # create model
+    model = SirenModelWithFiLM(in_features=1,
+                               hidden_features=config["SIREN_hidden_features"].sample(),
+                               num_layers=config["SIREN_num_layers"].sample(),
+                               out_features=1,
+                               mod_features=config["SIREN_mod_features"].sample())
+    model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
+    model.to(device)
 
+    # create optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
+
+    # load from checkpoint if checkpoint set
     if checkpoint_dir:
-        model_state, optimizer_state = torch.load(
-            os.path.join(checkpoint_dir, "checkpoint"))
-        net.load_state_dict(model_state)
+        load_file_path = os.path.join(checkpoint_dir, "checkpoint")
+        print("Load from Checkpoint: {}".format(load_file_path))
+        model_state, optimizer_state = torch.load(load_file_path)
+        model.load_state_dict(model_state)
         optimizer.load_state_dict(optimizer_state)
-        print("LOAD FROM CHECKPOINT")
 
-    enable_ds = True if config["modulation_type"] == "DeepSpeech" else False
-    trainset = PixelBasedVideoDataset(config["video"], use_deepspeech=enable_ds, ds_past=config["deepspeech_past"], ds_future=config["deepspeech_future"])
+    # necessary values and objects for training loop
 
-    train_subset, val_subset = torch.utils.data.random_split(trainset, [round(len(trainset) * 0.8),
-                                                                        round(len(trainset) * 0.2)],
-                                                                        generator=torch.Generator().manual_seed(42))
+    # training loop
+    for epoch in range(config["epochs"]):
+        for batch in train_dataset_loader:
+            # get batch data
+            metadata, audio_samples, audio_sample_indices = batch
+            audio_samples = audio_samples.to(device)
+            audio_sample_indices = audio_sample_indices.to(device)
 
-    trainloader = torch.utils.data.DataLoader(
-        train_subset,
-        batch_size=1,
-        shuffle=True,
-        num_workers=0)  # IMPORTANT
-    valloader = torch.utils.data.DataLoader(
-        val_subset,
-        batch_size=1,
-        shuffle=True,
-        num_workers=0)
+            # convert metadata into one array with floats values
+            modulation_input = torch.cat([
+                metadata['language'],
+                metadata['digit'],
+                metadata['sex'],
+                metadata['mfcc_coefficients']], dim=1)
 
-    for epoch in range(config["epochs"]):  # loop over the dataset multiple times
+            # zero gradients
+            optimizer.zero_grad()
+
+            # get prediction
+            prediction = model()  # TODO hier weitermachen
+
+        exit()
         running_loss = 0.0
         epoch_steps = 0
 
@@ -72,9 +92,6 @@ def train(config, checkpoint_dir=None):
             mask = data["mask"][0].to(device)
             gt_pixels = data["img"][0].to(device)
 
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
             # forward + backward + optimize
             x_input = torch.cat([coords], dim=1)
             if config["modulation_type"] == "ExpPose":
@@ -83,7 +100,7 @@ def train(config, checkpoint_dir=None):
                 dsf = data["dsf"][0].to(device)
                 mod = dsf
             # with torch.cuda.amp.autocast():
-            pred_pixels = net(x=x_input, modulation_input=mod[:, :config["SIREN_mod_features"]])
+            pred_pixels = model(x=x_input, modulation_input=mod[:, :config["SIREN_mod_features"]])
 
             pred_img = pred_pixels.permute(1, 0).view(1, 3, 256, 256)
             gt_img = gt_pixels.permute(1, 0).view(1, 3, 256, 256)
@@ -116,12 +133,12 @@ def train(config, checkpoint_dir=None):
 
                 x_input = torch.cat([coords], dim=1)
                 mod = torch.cat([exp[:, :], pose[:, :]], dim=1)
-                #with torch.cuda.amp.autocast():
+                # with torch.cuda.amp.autocast():
                 if config["modulation_type"] == "ExpPose":
                     mod = torch.cat([exp[:, :], pose[:, :]], dim=1)
                 elif config["modulation_type"] == "DeepSpeech":
                     mod = dsf
-                pred_pixels = net(x=x_input, modulation_input=mod[:, :config["SIREN_mod_features"]])
+                pred_pixels = model(x=x_input, modulation_input=mod[:, :config["SIREN_mod_features"]])
 
                 pred_img = pred_pixels.permute(1, 0).view(1, 3, 256, 256)
                 gt_img = gt_pixels.permute(1, 0).view(1, 3, 256, 256)
@@ -131,18 +148,15 @@ def train(config, checkpoint_dir=None):
                 val_steps += 1
             break  # TODO
 
-            if config["short_gpu_sleep"]:
-                time.sleep(0.0175)
-
         with tune.checkpoint_dir(epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
-            torch.save((net.state_dict(), optimizer.state_dict()), path)
+            torch.save((model.state_dict(), optimizer.state_dict()), path)
 
         # tune?
-        pred_img = pred_pixels.permute(1, 0).view(1, 1, 3, 256, 256).detach().cpu().numpy() # np.random.randn(1, 1, 3, 10, 10)
+        pred_img = pred_pixels.permute(1, 0).view(1, 1, 3, 256,
+                                                  256).detach().cpu().numpy()  # np.random.randn(1, 1, 3, 10, 10)
         gt_img = gt_pixels.permute(1, 0).view(1, 1, 3, 256, 256).detach().cpu().numpy()
         img_np = np.concatenate([pred_img, gt_img], axis=-1)
-
 
         metrics = {
             "loss": (val_loss / val_steps),
@@ -156,21 +170,32 @@ def train(config, checkpoint_dir=None):
 
         metrics.update(loss_dict)
         tune.report(**metrics)
-        #tune.report(loss=(val_loss / val_steps), vid=img_np)#accuracy=correct / total)
+        # tune.report(loss=(val_loss / val_steps), vid=img_np)#accuracy=correct / total)
     print("Finished Training")
 
 
 if __name__ == "__main__":
-
     config = {
-        "dataset_path": os.path.normpath("Dataset/samples"),
+        # data
+        "training_dataset_path": os.path.normpath("Dataset/samples"),
+        "validation_dataset_path": os.path.normpath("Dataset/validation"),
+        "audio_sample_coverage": tune.quniform(0.2, 0.5, 0.1),
+        "shuffle_audio_samples": tune.choice([True, False]),
+        "num_mfccs": 50,
+        "feature_mapping_file": os.path.normpath("data_handling/feature_mapping.json"),
+
+        # data loading
+        'batch_size': 1,
+        'shuffle_audio_files': True,
+
+        # model
         "SIREN_hidden_features": tune.choice([128]),
         "SIREN_num_layers": tune.choice([5]),
         "SIREN_mod_features": tune.choice([348]),
 
-        "mfccs": 50,
-
+        # training
         "lr": 0.001,
+        "epochs": 50,
     }
 
     train(config)

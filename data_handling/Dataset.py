@@ -5,25 +5,14 @@ import librosa
 import numpy as np
 import torch
 
-from data_handling.util import files_in_directory, get_metadata_from_file_name
-
-
-class DigitAudioPairMetadata:
-    def __init__(self, language, digit, sex, mfcc_coefficients):
-        self.language = language
-        self.digit = digit
-        self.sex = sex
-        self.mfcc_coefficients = mfcc_coefficients
-
-    def __str__(self):
-        return str(vars(self))
+from data_handling.util import files_in_directory, get_metadata_from_file_name, normalize_tensor
 
 
 class DigitAudioDataset(torch.utils.data.Dataset):
     def __init__(self, path, audio_sample_coverage=1.0, shuffle_audio_samples=True, num_mfcc=50,
-                 feature_mapping_file=os.path.join(os.getcwd(), 'data_handling', 'feature_mapping.json')):
+                 feature_mapping_file=os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')):
         # validate
-        if not 1 >= audio_sample_coverage > 0:
+        if not 1.0 >= audio_sample_coverage > 0.0:
             raise ValueError('sample_coverage ranges between (0;1]! Given value was {}.'.format(audio_sample_coverage))
         if not os.path.exists(feature_mapping_file):
             raise FileNotFoundError('The feature mapping file does not exists: {}'.format(feature_mapping_file))
@@ -36,17 +25,21 @@ class DigitAudioDataset(torch.utils.data.Dataset):
 
         # necessary values
         self.data_pair_base_paths = []
+        self.data_pair_audio_extensions = []
 
         # load feature mappings
         f = open(feature_mapping_file)
         feature_mappings = json.load(f)
         self.speaker_sex_mapping = feature_mappings['speakers-sex']
+        self.language_mapping = feature_mappings['language-index']
+        self.sex_mapping = feature_mappings['sex-index']
         f.close()
 
         # check for valid data pairs in path
-        self.audio_files = files_in_directory(self.path,['**/*.wav', "**/*.flac"], recursive=True)
+        self.audio_files = files_in_directory(self.path, ['**/*.wav', "**/*.flac"], recursive=True)
         for file in self.audio_files:
             data_pair_name = os.path.splitext(os.path.basename(file))[0]
+            data_pair_audio_extension = os.path.splitext(os.path.basename(file))[1]
             data_pair_files_dir = os.path.dirname(file)
             data_pair_base_path = os.path.join(data_pair_files_dir, data_pair_name)
 
@@ -56,6 +49,7 @@ class DigitAudioDataset(torch.utils.data.Dataset):
                 continue
 
             self.data_pair_base_paths.append(data_pair_base_path)
+            self.data_pair_audio_extensions.append(data_pair_audio_extension)
 
         print('Found {} Data Pairs for Dataset'.format(len(self.data_pair_base_paths)))
 
@@ -71,22 +65,36 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         original array.
         """
         data_pair_base_path = self.data_pair_base_paths[idx]
+        audiofile_extension = self.data_pair_audio_extensions[idx]
         print(data_pair_base_path)
 
-        # get metadata values of current data pair
+        # get metadata values of current data pair as int
         language, speaker, digit, _ = get_metadata_from_file_name(data_pair_base_path)
-        sex = self.speaker_sex_mapping[speaker]
+        language = self.language_mapping[language]
+        sex = self.sex_mapping[self.speaker_sex_mapping[speaker]]
+        digit = int(digit)
+
+        # metadata to normalized float tensor
+        language = normalize_tensor(torch.FloatTensor([language]), min_value=0,
+                                    max_value=len(self.language_mapping) - 1)
+        sex = normalize_tensor(torch.FloatTensor([sex]), min_value=0, max_value=len(self.sex_mapping) - 1)
+        digit = normalize_tensor(torch.FloatTensor([digit]), min_value=0, max_value=9)
 
         # load audio file
-        audio_file = '{}.wav'.format(data_pair_base_path)
+        audio_file = '{}{}'.format(data_pair_base_path, audiofile_extension)
         signal, sample_rate = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
 
         # load mfcc file
         mfcc_file = '{}_mfcc_{}.npy'.format(data_pair_base_path, self.num_mfcc)
-        mfcc_coefficients = np.load(mfcc_file)
+        mfcc_coefficients = np.load(mfcc_file).reshape(self.num_mfcc)
 
         # create metadata object
-        metadata = DigitAudioPairMetadata(language, digit, sex, mfcc_coefficients)
+        metadata = {
+            "language": language,
+            "digit": digit,
+            "sex": sex,
+            "mfcc_coefficients": mfcc_coefficients
+        }
 
         # random audio sampling
         num_total_samples = len(signal)
@@ -100,12 +108,10 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         random_audio_samples = signal[random_audio_sample_indices]
 
         # return
-        return metadata, random_audio_samples, random_audio_sample_indices
+        return metadata, torch.FloatTensor(random_audio_samples), torch.FloatTensor(random_audio_sample_indices)
 
 
 if __name__ == '__main__':
-    os.chdir(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
     data_path = os.path.join(os.getcwd(), 'Dataset', 'samples')
     dataset = DigitAudioDataset(data_path, audio_sample_coverage=0.2, shuffle_audio_samples=False)
 

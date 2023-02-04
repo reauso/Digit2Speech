@@ -2,6 +2,7 @@ import glob
 import os.path
 
 import soundfile
+import torch
 
 
 def files_in_directory(directory_path, file_patterns=None, recursive=False):
@@ -35,3 +36,19 @@ def get_metadata_from_file_name(file_path):
 def write_trial_to_file(output_folder, language, speaker, digit, trial, signal, sample_rate):
     soundfile.write(get_audio_file_path(output_folder, language,
                     speaker, digit, trial), signal, sample_rate)
+
+
+def normalize_tensor(tensor, min_value=None, max_value=None):
+    """
+    Normalizes a tensor to range [-1;1]
+    """
+    min_value = min_value if min_value is not None else torch.min(tensor)
+    max_value = max_value if max_value is not None else torch.max(tensor)
+    delta = max_value - min_value
+
+    if delta == 0:
+        return tensor - min_value
+
+    scale_factor = 2 / delta
+    tensor = tensor * scale_factor
+    return tensor - 1
