@@ -15,10 +15,6 @@ class MappingNetwork(nn.Module):
     def __init__(self, modulation_input_size, num_features, modulation_layer=3):
         super(MappingNetwork, self).__init__()
 
-        #self.lin0 = nn.Linear(modulation_input_size, 256)
-        #self.lin1 = nn.Linear(256, 256)
-        #self.lin2 = nn.Linear(256, 256)
-
         self.modulation_layers = torch.nn.ModuleList([nn.Linear(modulation_input_size, 256)])
         for i in range(modulation_layer-1):
             self.modulation_layers.extend([nn.Linear(256, 256)])
@@ -32,8 +28,6 @@ class MappingNetwork(nn.Module):
 
         for layer in self.modulation_layers:
             x = self.relu(layer(x))
-        # x = self.relu(self.lin1(x))
-        # x = self.relu(self.lin2(x))
 
         scale = self.lin_scale(x)
         shift = self.lin_shift(x)

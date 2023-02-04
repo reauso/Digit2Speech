@@ -90,7 +90,6 @@ class SirenModel(nn.Module):
         return x
 
 
-
 if __name__ == "__main__":
 
     siren = SirenModelWithFiLM(2, 256, 4, 3, 20)
