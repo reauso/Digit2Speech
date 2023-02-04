@@ -1,5 +1,17 @@
 {
     "speakers-sex": {
+        "00": "male",
+        "01": "male",
+        "02": "female",
+        "03": "female",
+        "04": "male",
+        "05": "female",
+        "06": "female",
+        "07": "male",
+        "08": "male",
+        "09": "male",
+        "10": "female",
+        "11": "female",
         "12": "male",
         "13": "female",
         "14": "female",
