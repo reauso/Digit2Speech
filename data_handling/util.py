@@ -2,6 +2,7 @@ import glob
 import os.path
 
 import soundfile
+import re
 
 
 def files_in_directory(directory_path, file_patterns=None, recursive=False):
@@ -22,13 +23,23 @@ def get_audio_file_path(folder, language, speaker, digit, trial):
     return os.path.join(folder, f"lang-{language}_speaker-{speaker}_digit-{digit}_trial-{trial}.wav")
 
 
-def get_metadata_from_file_name(file_path):
+def get_metadata_from_file_name(file_path, as_dict=False):
     file_name = os.path.basename(file_path)
-    parts = file_name.split("_")
-    language = parts[0].split("-")[1]
-    speaker = parts[1].split("-")[1]
-    digit = int(parts[2].split("-")[1])
-    trial = parts[3].split("-")[1].split(".")[0]
+
+    def search_metadata(field, expression, text=file_name):
+        return re.search(f"{field}-{expression}", text)
+
+    lang_re = search_metadata("lang", "(\w+)_")
+    trial_re = search_metadata("trial", "(\d+)")
+    digit_re = search_metadata("digit", "(\d)")
+    speaker_re = search_metadata("speaker", "(\d+)")
+
+    language = lang_re.group(1)
+    speaker = speaker_re.group(1)
+    digit = digit_re.group(1)
+    trial = trial_re.group(1)
+    if as_dict:
+        return {"language": language, "speaker": speaker, "digit": digit, "trial": trial}
     return language, speaker, digit, trial
 
 

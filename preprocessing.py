@@ -6,16 +6,22 @@ import tqdm
 import os
 import argparse
 
+from data_handling.preprocessing.train_val_split import train_val_split
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--mfcc", action="store_true")
     parser.add_argument("--split_audio", action="store_true")
+    parser.add_argument("--split_train_val", action="store_true")
     args = parser.parse_args()
+
+    dataset_folder = os.path.join(os.getcwd(), "Dataset")
+
     if args.mfcc:
         save_mfcc_for_trials()
     if args.split_audio:
-        raw_samples_directory = os.path.join(os.getcwd(), 'Dataset', 'raw-samples')
-        samples_directory = os.path.join(os.getcwd(), 'Dataset', 'samples')
+        raw_samples_directory = os.path.join(dataset_folder, 'raw-samples')
+        samples_directory = os.path.join(dataset_folder, 'samples')
 
         # create output dir if it doesn't exist
         if not os.path.exists(samples_directory):
@@ -43,3 +49,9 @@ if __name__ == '__main__':
             for trial_number, trial_mid in enumerate(trial_midpoints):
                 trial_signal = signal[trial_mid - sample_rate: trial_mid + sample_rate]
                 util.write_trial_to_file(samples_directory, language, speaker, digit, trial_number, trial_signal, sample_rate)
+
+    if args.split_train_val:
+        samples_directory = os.path.join(dataset_folder, 'samples')
+        training_directory = os.path.join(dataset_folder, "training")
+        validation_directory = os.path.join(dataset_folder, "validation")
+        train_val_split(samples_directory, training_directory, validation_directory)
