@@ -1,13 +1,11 @@
 import time
 import numpy as np
-from Datasets.VideoDataset import PixelBasedVideoDataset
 from model.SirenModel import SirenModelWithFiLM
 import os
 import torch
 import torch.nn as nn
 from torch.utils.data import random_split
 from ray import tune
-from loss_functions.losses import LossCombination
 
 
 def train(config, checkpoint_dir=None):
@@ -165,28 +163,14 @@ def train(config, checkpoint_dir=None):
 if __name__ == "__main__":
 
     config = {
-        "video": "/home/alex/Dropbox/Datasets/PHLA_GreenScreen_Aug_22/PHLA_GreenScreen_Aug_22_trimmed_preprocessed/256/20220823_190124_cut.mp4",
+        "dataset_path": os.path.normpath("Dataset/samples"),
+        "SIREN_hidden_features": tune.choice([128]),
+        "SIREN_num_layers": tune.choice([5]),
+        "SIREN_mod_features": tune.choice([348]),
 
-        "SIREN_hidden_features": 128, #tune.sample_from(lambda _: 2 ** np.random.randint(7, 10)),
-        "SIREN_num_layers": 5, #tune.choice([5, 6, 7, 8]),
-        "SIREN_mod_features": 348, #20, #tune.choice([20]),
+        "mfccs": 50,
 
-        # Film Modulation
-        "modulation_type": "DeepSpeech",  # ["ExpPose", "DeepSpeech"]
-        # DeepSpeech Settings
-        "deepspeech_past": tune.choice([8, 9]),
-        "deepspeech_future": tune.choice([8, 9]),
-
-        # "l1": tune.sample_from(lambda _: 2 ** np.random.randint(2, 9)),
-        # "l2": tune.sample_from(lambda _: 2 ** np.random.randint(2, 9)),
-        "lr": 0.001, #tune.loguniform(1e-4, 1e-1),
-        "loss_L1": None,
-        "loss_MSE": 40,
-        "loss_VGG": 2,
-        "loss_SSIM": None,
-        "loss_maskedMSE": None,
-        "epochs": 1,
-        # "batch_size": tune.choice([2, 4, 8, 16])
-        "short_gpu_sleep": False
+        "lr": 0.001,
     }
+
     train(config)
