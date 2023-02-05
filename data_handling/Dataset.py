@@ -87,13 +87,16 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         # load mfcc file
         mfcc_file = '{}_mfcc_{}.npy'.format(data_pair_base_path, self.num_mfcc)
         mfcc_coefficients = np.load(mfcc_file).reshape(self.num_mfcc)
+        # spectogram_file = '{}_spectogram.npy'.format(data_pair_base_path)
+        # spectogram = np.load(spectogram_file)
 
         # create metadata object
         metadata = {
             "language": language,
             "digit": digit,
             "sex": sex,
-            "mfcc_coefficients": mfcc_coefficients
+            "mfcc_coefficients": mfcc_coefficients,
+            # "spectogram": spectogram
         }
 
         # random audio sampling

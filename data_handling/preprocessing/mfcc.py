@@ -18,10 +18,7 @@ def calculate_mfcc_for_trial(trial_file,  n_mfcc=50):
     return np.transpose(mfcc_coefficients, (1, 0))
 
 
-def save_mfcc_for_trials():
-    samples_directory = os.path.join(os.getcwd(), 'Dataset', 'samples')
-
-    # get all audio files
+def save_mfcc_for_trials(samples_directory):
     audio_files = util.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 

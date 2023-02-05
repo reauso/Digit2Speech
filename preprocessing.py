@@ -1,6 +1,7 @@
 from data_handling.preprocessing.mfcc import save_mfcc_for_trials
 from data_handling import util
 import librosa
+from data_handling.preprocessing.spectogram import save_spectogram_for_trials
 from data_handling.preprocessing.split_audio_signals import trial_midpoint_indices_in_signal
 import tqdm
 import os
@@ -10,15 +11,14 @@ from data_handling.preprocessing.train_val_split import train_val_split
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mfcc", action="store_true")
     parser.add_argument("--split_audio", action="store_true")
     parser.add_argument("--split_train_val", action="store_true")
+    parser.add_argument("--mfcc", action="store_true")
+    parser.add_argument("--spectograms", action="store_true")
     args = parser.parse_args()
 
     dataset_folder = os.path.join(os.getcwd(), "Dataset")
 
-    if args.mfcc:
-        save_mfcc_for_trials()
     if args.split_audio:
         raw_samples_directory = os.path.join(dataset_folder, 'raw-samples')
         samples_directory = os.path.join(dataset_folder, 'samples')
@@ -50,8 +50,17 @@ if __name__ == '__main__':
                 trial_signal = signal[trial_mid - sample_rate: trial_mid + sample_rate]
                 util.write_trial_to_file(samples_directory, language, speaker, digit, trial_number, trial_signal, sample_rate)
 
+
     if args.split_train_val:
         samples_directory = os.path.join(dataset_folder, 'samples')
         training_directory = os.path.join(dataset_folder, "training")
         validation_directory = os.path.join(dataset_folder, "validation")
         train_val_split(samples_directory, training_directory, validation_directory)
+
+    if args.mfcc:
+        training_directory = os.path.join(dataset_folder, "training")
+        save_mfcc_for_trials(training_directory)
+
+    if args.spectograms:
+        training_directory = os.path.join(dataset_folder, "training")
+        save_spectogram_for_trials(training_directory)
