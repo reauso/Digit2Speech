@@ -1,4 +1,6 @@
 import os
+import time
+
 import numpy as np
 import ray
 import torch
@@ -9,7 +11,7 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.air import session
 from torch.utils.data import DataLoader
 
-from data_handling.Dataset import DigitAudioDataset
+from data_handling.Dataset import DigitAudioDataset, DigitAudioDatasetInRAM
 from model.SirenModel import SirenModelWithFiLM
 
 
@@ -26,8 +28,8 @@ def train(config):
         num_mfcc=config['num_mfccs'],
         feature_mapping_file=config['feature_mapping_file'],
     )
-    train_dataset_loader = DataLoader(train_dataset, batch_size=1,
-                                      shuffle=config['shuffle_audio_files'], num_workers=0, drop_last=False)
+    train_dataset_loader = DataLoader(train_dataset, batch_size=1, prefetch_factor=10, pin_memory=True,
+                                      shuffle=config['shuffle_audio_files'], num_workers=4, drop_last=False)
 
     validation_dataset = DigitAudioDataset(
         path=config['validation_dataset_path'],
@@ -36,8 +38,8 @@ def train(config):
         num_mfcc=config['num_mfccs'],
         feature_mapping_file=config['feature_mapping_file'],
     )
-    validation_dataset_loader = DataLoader(validation_dataset, batch_size=1,
-                                           shuffle=False, num_workers=0, drop_last=False)
+    validation_dataset_loader = DataLoader(validation_dataset, batch_size=1, prefetch_factor=10, pin_memory=True,
+                                           shuffle=False, num_workers=4, drop_last=False)
 
     # create model
     model = SirenModelWithFiLM(in_features=1,
@@ -67,18 +69,21 @@ def train(config):
         train_losses = []
         eval_losses = []
 
-        for audio_file_data in train_dataset_loader:
+        for j, audio_file_data in enumerate(train_dataset_loader):
             # get batch data
             metadata, audio_samples, audio_sample_indices = audio_file_data
-            audio_samples = torch.transpose(audio_samples, 1, 0).to(device)
-            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device)
+            audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
+            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
+
+            # print status
+            #print("Audio File {}/{} with {} samples".format(j, len(train_dataset_loader), audio_samples.size()[0]))
 
             # convert metadata into one array with floats values
             modulation_input = torch.cat([
                 metadata['language'],
                 metadata['digit'],
                 metadata['sex'],
-                metadata['mfcc_coefficients']], dim=1).to(device)
+                metadata['mfcc_coefficients']], dim=1).to(device, non_blocking=True)
 
             num_samples = audio_samples.size()[0]
             num_batches = int(num_samples / config['batch_size'])
@@ -106,18 +111,22 @@ def train(config):
                 # documentation
                 train_losses.append(loss.item())
 
-        for audio_file_data in validation_dataset_loader:
+
+        for i, audio_file_data in enumerate(validation_dataset_loader):
             # get batch data
             metadata, audio_samples, audio_sample_indices = audio_file_data
-            audio_samples = torch.transpose(audio_samples, 1, 0).to(device)
-            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device)
+            audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
+            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
+
+            # print status
+            #print("Audio File {}/{} with {} samples".format(i, len(train_dataset_loader), audio_samples.size()[0]))
 
             # convert metadata into one array with floats values
             modulation_input = torch.cat([
                 metadata['language'],
                 metadata['digit'],
                 metadata['sex'],
-                metadata['mfcc_coefficients']], dim=1).to(device)
+                metadata['mfcc_coefficients']], dim=1).to(device, non_blocking=True)
 
             with torch.no_grad():
                 prediction = model(audio_sample_indices, modulation_input)
@@ -138,8 +147,8 @@ def train(config):
 
 if __name__ == "__main__":
     # ray config
-    num_samples = 1
-    max_num_epochs = 30
+    num_trials = 100
+    max_num_epochs = 20
     gpus_per_trial = 1
 
     # config
@@ -147,22 +156,22 @@ if __name__ == "__main__":
         # data
         "training_dataset_path": os.path.normpath("Dataset/training"),
         "validation_dataset_path": os.path.normpath("Dataset/validation"),
-        "audio_sample_coverage": tune.quniform(0.2, 0.5, 0.1),
+        "audio_sample_coverage": tune.quniform(0.2, 0.4, 0.1),
         "shuffle_audio_samples": tune.choice([True, False]),
         "num_mfccs": 50,
         "feature_mapping_file": os.path.normpath("data_handling/feature_mapping.json"),
 
         # data loading
-        'batch_size': tune.choice([8, 64, 128, 512, 1024]),
+        'batch_size': tune.choice([2048, 4096, 8192]),
         'shuffle_audio_files': True,
 
         # model
-        "SIREN_hidden_features": tune.choice([128]),
-        "SIREN_num_layers": tune.choice([5]),
-        "SIREN_mod_features": tune.choice([348]),
+        "SIREN_hidden_features": tune.choice([64, 128]),
+        "SIREN_num_layers": tune.choice([3, 4, 5]),
+        "SIREN_mod_features": tune.choice([128, 256, 348]),
 
         # training
-        "lr": 0.001,
+        "lr": tune.choice([0.001, 0.002, 0.003]),
         "epochs": 50,
     }
 
@@ -176,15 +185,15 @@ if __name__ == "__main__":
         metric="eval_loss",
         mode="min",
         max_t=max_num_epochs,
-        grace_period=10,
+        grace_period=5,
         reduction_factor=2)
     reporter = CLIReporter(
         metric_columns=["eval_loss", "training_iteration"])
     result = tune.run(
         train,
-        resources_per_trial={"cpu": 10, "gpu": gpus_per_trial},
+        resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
         config=config,
-        num_samples=num_samples,
+        num_samples=num_trials,
         scheduler=scheduler,
         progress_reporter=reporter,
         local_dir="./Checkpoints",
