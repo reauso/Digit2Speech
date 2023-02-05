@@ -44,19 +44,13 @@ class FiLM(nn.Module):
 
         assert scale.size() == shift.size(), "Scale and Shift have different dimensions in Film Layer"
         assert scale.size()[1] == x.size()[1], "Different number of features"
-
-        print(x.size())
         #
         if len(x.size())-1 == 2:  # batch + 2d
-            print('A')
             scale = scale.unsqueeze(-1).expand_as(x)
             shift = shift.unsqueeze(-1).expand_as(x)
-            print(scale.size())
         elif len(x.size())-1 == 3:  # batch + 2d
-            print('B')
             scale = scale.unsqueeze(-1).unsqueeze(-1).expand_as(x)
             shift = shift.unsqueeze(-1).unsqueeze(-1).expand_as(x)
-            print(scale.size())
 
         return scale * x + shift
 

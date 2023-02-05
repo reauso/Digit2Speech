@@ -66,7 +66,6 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         """
         data_pair_base_path = self.data_pair_base_paths[idx]
         audiofile_extension = self.data_pair_audio_extensions[idx]
-        print(data_pair_base_path)
 
         # get metadata values of current data pair as int
         language, speaker, digit, _ = get_metadata_from_file_name(data_pair_base_path)

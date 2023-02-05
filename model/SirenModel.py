@@ -46,7 +46,7 @@ class SineLayerWithFilm(nn.Module):
 
 class SirenModelWithFiLM(nn.Module):
 
-    def __init__(self, in_features, hidden_features, num_layers, out_features, mod_features, use_film=True, omega_0=30, mod_layer=3):
+    def __init__(self, in_features, out_features, hidden_features, num_layers, mod_features, mod_layer=3, use_film=True, omega_0=30):
         super(SirenModelWithFiLM, self).__init__()
 
         # First Layer
