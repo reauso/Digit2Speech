@@ -1,7 +1,7 @@
 from data_handling.preprocessing.mfcc import save_mfcc_for_trials
 from data_handling import util
 import librosa
-from data_handling.preprocessing.spectogram import save_spectogram_for_trials
+from data_handling.preprocessing.spectrogram import save_spectrogram_for_trials
 from data_handling.preprocessing.split_audio_signals import trial_midpoint_indices_in_signal
 from tqdm import tqdm
 import os
@@ -48,8 +48,8 @@ def mfcc(data_directory):
     save_mfcc_for_trials(data_directory)
 
 
-def spectograms(data_directory):
-    save_spectogram_for_trials(data_directory)
+def spectrogram(data_directory):
+    save_spectrogram_for_trials(data_directory)
 
 
 if __name__ == '__main__':
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     parser.add_argument("--split_audio", action="store_true")
     parser.add_argument("--split_train_val", action="store_true")
     parser.add_argument("--mfcc", action="store_true")
-    parser.add_argument("--spectograms", action="store_true")
+    parser.add_argument("--spectrogram", action="store_true")
     args = parser.parse_args()
 
     # define folder paths
@@ -77,6 +77,6 @@ if __name__ == '__main__':
         mfcc(training_directory)
         mfcc(validation_directory)
 
-    if args.spectograms:
-        spectograms(training_directory)
-        spectograms(validation_directory)
+    if args.spectrogram:
+        spectrogram(training_directory)
+        spectrogram(validation_directory)
