@@ -1,11 +1,5 @@
-import os
-
-import librosa
 import numpy as np
 from scipy.signal import argrelmin
-from tqdm import tqdm
-
-from data_handling import util
 
 
 def trial_midpoint_indices_in_signal(signal, sample_rate, threshold, minimal_trial_sample_size):

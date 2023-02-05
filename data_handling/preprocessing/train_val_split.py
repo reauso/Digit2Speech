@@ -1,4 +1,4 @@
-from data_handling.util import files_in_directory, get_metadata_from_file_name, write_trial_to_file
+from data_handling.util import files_in_directory, get_metadata_from_file_name
 import pandas as pd
 import os
 import shutil
