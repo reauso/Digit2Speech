@@ -34,5 +34,3 @@ def save_mfcc_for_trials(samples_directory):
         mfcc_coefficients = calculate_mfcc_for_trial(file, n_mfcc=n_mfcc)
 
         np.save(mfcc_file, mfcc_coefficients)
-
-

@@ -13,6 +13,7 @@ def generate_spectogram_for_trial(trial_file):
     spectogram = librosa.feature.melspectrogram(y=audio_samples, sr=audio_sampling_rate)
     return np.transpose(spectogram, (1, 0))
 
+
 def save_spectogram_for_trials(samples_directory):
     audio_files = util.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
