@@ -51,7 +51,7 @@ class DigitAudioDataset(torch.utils.data.Dataset):
             self.data_pair_base_paths.append(data_pair_base_path)
             self.data_pair_audio_extensions.append(data_pair_audio_extension)
 
-        print('Found {} Data Pairs for Dataset'.format(len(self.data_pair_base_paths)))
+        print('Found {} Data Pairs for Dataset at {}'.format(len(self.data_pair_base_paths), self.path))
 
     def __len__(self):
         return len(self.audio_files)

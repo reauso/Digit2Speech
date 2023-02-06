@@ -149,13 +149,13 @@ if __name__ == "__main__":
     # ray config
     num_trials = 100
     max_num_epochs = 20
-    gpus_per_trial = 1
+    gpus_per_trial = 0.3
 
     # config
     config = {
         # data
-        "training_dataset_path": os.path.normpath("Dataset/training"),
-        "validation_dataset_path": os.path.normpath("Dataset/validation"),
+        "training_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/training")),
+        "validation_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/validation")),
         "audio_sample_coverage": tune.quniform(0.2, 0.4, 0.1),
         "shuffle_audio_samples": tune.choice([True, False]),
         "num_mfccs": 50,
@@ -177,10 +177,12 @@ if __name__ == "__main__":
 
     env = {
         "working_dir": "./",
+        "excludes": [".git"],
+        "conda": "./environment.yml",
     }
 
-    #ray.init(address='auto', runtime_env=env,)
-    ray.init()
+    ray.init(address='auto', runtime_env=env)
+    #ray.init()
     scheduler = ASHAScheduler(
         metric="eval_loss",
         mode="min",
@@ -191,7 +193,7 @@ if __name__ == "__main__":
         metric_columns=["eval_loss", "training_iteration"])
     result = tune.run(
         train,
-        resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
+        resources_per_trial={"cpu": 1, "gpu": gpus_per_trial},
         config=config,
         num_samples=num_trials,
         scheduler=scheduler,
