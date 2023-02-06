@@ -149,7 +149,7 @@ if __name__ == "__main__":
     # ray config
     num_trials = 100
     max_num_epochs = 20
-    gpus_per_trial = 0.3
+    gpus_per_trial = 0.33
 
     # config
     config = {
@@ -181,7 +181,7 @@ if __name__ == "__main__":
         "conda": "./environment.yml",
     }
 
-    ray.init(address='auto', runtime_env=env)
+    ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
     #ray.init()
     scheduler = ASHAScheduler(
         metric="eval_loss",
