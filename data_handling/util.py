@@ -20,6 +20,14 @@ def files_in_directory(directory_path, file_patterns=None, recursive=False):
     return files
 
 
+def read_textfile(textfile_path):
+    f = open(textfile_path, 'r')
+    text = f.read()
+    f.close()
+
+    return text
+
+
 def get_audio_file_path(folder, language, speaker, digit, trial):
     return os.path.join(folder, f"lang-{language}_speaker-{speaker}_digit-{digit}_trial-{trial}.wav")
 
