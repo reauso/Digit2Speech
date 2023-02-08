@@ -5,7 +5,7 @@ import shutil
 from tqdm import tqdm
 
 
-def train_val_split(source_path, training_folder, validation_folder, split_factor=0.1):
+def split_train_val(source_path, training_folder, validation_folder, split_factor=0.1):
     files = files_in_directory(
         source_path, ['**/*.wav', "**/*.flac"], recursive=True)
 

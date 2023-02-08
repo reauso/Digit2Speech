@@ -1,5 +1,41 @@
+import os
+
+import librosa
 import numpy as np
 from scipy.signal import argrelmin
+from tqdm import tqdm
+
+from data_handling import util
+
+
+def split_audio(raw_samples_directory, samples_directory):
+    # create output dir if it doesn't exist
+    if not os.path.exists(samples_directory):
+        os.makedirs(samples_directory)
+
+    # get all audio files
+    audio_files = util.files_in_directory(raw_samples_directory)
+    print('Found {} Audio Files'.format(len(audio_files)))
+
+    # define necessary values
+    threshold = 0.04
+    minimal_trial_sample_size = 1000
+
+    for file in tqdm(audio_files):
+        # metadata of current file
+        language, speaker, digit, _ = util.get_metadata_from_file_name(file)
+
+        # load file
+        signal, sample_rate = librosa.load(file, sr=librosa.get_samplerate(file))
+
+        # get midpoint indices of each valid trial in signal
+        trial_midpoints = trial_midpoint_indices_in_signal(signal, sample_rate, threshold, minimal_trial_sample_size)
+
+        # save each trial
+        for trial_number, trial_mid in enumerate(trial_midpoints):
+            trial_signal = signal[trial_mid - sample_rate: trial_mid + sample_rate]
+            util.write_trial_to_file(samples_directory, language, speaker, digit, trial_number, trial_signal,
+                                     sample_rate)
 
 
 def trial_midpoint_indices_in_signal(signal, sample_rate, threshold, minimal_trial_sample_size):
