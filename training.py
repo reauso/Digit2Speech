@@ -111,7 +111,6 @@ def train(config):
                 # documentation
                 train_losses.append(loss.item())
 
-
         for i, audio_file_data in enumerate(validation_dataset_loader):
             # get batch data
             metadata, audio_samples, audio_sample_indices = audio_file_data
