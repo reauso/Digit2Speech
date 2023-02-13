@@ -11,7 +11,7 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.air import session
 from torch.utils.data import DataLoader
 
-from data_handling.Dataset import DigitAudioDataset, DigitAudioDatasetInRAM
+from data_handling.Dataset import DigitAudioDataset
 from model.SirenModel import SirenModelWithFiLM
 
 
@@ -27,6 +27,7 @@ def train(config):
         shuffle_audio_samples=config['shuffle_audio_samples'],
         num_mfcc=config['num_mfccs'],
         feature_mapping_file=config['feature_mapping_file'],
+        transformation_file=config['transformation_file'],
     )
     train_dataset_loader = DataLoader(train_dataset, batch_size=1, prefetch_factor=10, pin_memory=True,
                                       shuffle=config['shuffle_audio_files'], num_workers=4, drop_last=False)
@@ -37,6 +38,7 @@ def train(config):
         shuffle_audio_samples=False,
         num_mfcc=config['num_mfccs'],
         feature_mapping_file=config['feature_mapping_file'],
+        transformation_file=config['transformation_file'],
     )
     validation_dataset_loader = DataLoader(validation_dataset, batch_size=1, prefetch_factor=10, pin_memory=True,
                                            shuffle=False, num_workers=4, drop_last=False)
@@ -158,7 +160,8 @@ if __name__ == "__main__":
         "audio_sample_coverage": tune.quniform(0.2, 0.4, 0.1),
         "shuffle_audio_samples": tune.choice([True, False]),
         "num_mfccs": 50,
-        "feature_mapping_file": os.path.normpath("data_handling/feature_mapping.json"),
+        "feature_mapping_file": os.path.normpath(os.getcwd() + "/data_handling/feature_mapping.json"),
+        'transformation_file': os.path.normpath(os.getcwd() + "/Dataset/transformation.json"),
 
         # data loading
         'batch_size': tune.choice([2048, 4096, 8192]),

@@ -5,17 +5,20 @@ import librosa
 import numpy as np
 import torch
 
-from data_handling.util import files_in_directory, get_metadata_from_file_name, normalize_tensor
+from data_handling.util import files_in_directory, get_metadata_from_file_name, normalize_tensor, read_textfile
 
 
 class DigitAudioDataset(torch.utils.data.Dataset):
     def __init__(self, path, audio_sample_coverage=1.0, shuffle_audio_samples=True, num_mfcc=50,
-                 feature_mapping_file=os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')):
+                 feature_mapping_file=os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json'),
+                 transformation_file=None):
         # validate
         if not 1.0 >= audio_sample_coverage > 0.0:
             raise ValueError('sample_coverage ranges between (0;1]! Given value was {}.'.format(audio_sample_coverage))
         if not os.path.exists(feature_mapping_file):
             raise FileNotFoundError('The feature mapping file does not exists: {}'.format(feature_mapping_file))
+        if transformation_file is not None and not os.path.exists(transformation_file):
+            raise FileNotFoundError('The transformation file does not exists: {}'.format(feature_mapping_file))
 
         # set parameters
         self.path = path
@@ -35,6 +38,16 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         self.sex_mapping = feature_mappings['sex-index']
         f.close()
 
+        # load transformation
+        if transformation_file is not None:
+            raw_transformation_text = read_textfile(transformation_file)
+            transformation = json.loads(raw_transformation_text)
+            self.shift = transformation['shift']
+            self.scale = transformation['scale']
+        else:
+            self.shift = 0.0
+            self.scale = 1.0
+
         # check for valid data pairs in path
         self.audio_files = files_in_directory(self.path, ['**/*.wav', "**/*.flac"], recursive=True)
         for file in self.audio_files:
@@ -52,6 +65,7 @@ class DigitAudioDataset(torch.utils.data.Dataset):
             self.data_pair_audio_extensions.append(data_pair_audio_extension)
 
         print('Found {} Data Pairs for Dataset at {}'.format(len(self.data_pair_base_paths), self.path))
+        print('Use Shift: {} and Scale: {}.'.format(self.shift, self.scale))
 
     def __len__(self):
         return len(self.audio_files)
@@ -82,6 +96,9 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         # load audio file
         audio_file = '{}{}'.format(data_pair_base_path, audiofile_extension)
         signal, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
+
+        # apply shift and scale to signal
+        signal = (signal - self.shift) * self.scale
 
         # load mfcc file
         mfcc_file = '{}_mfcc_{}.npy'.format(data_pair_base_path, self.num_mfcc)

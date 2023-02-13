@@ -26,6 +26,7 @@ if __name__ == "__main__":
     trial_name = 'train_fc3e1_00054_54_SIREN_hidden_features=64,SIREN_mod_features=348,SIREN_num_layers=4,audio_sample_coverage=0.4000,batch_size=40_2023-02-07_01-13-47'
     model_path = os.path.join(os.getcwd(), 'Checkpoints', experiment_name, trial_name)
     feature_mapping_file = os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')
+    transformation_file = os.path.normpath(os.getcwd() + '/Dataset/transformation.json')
 
     # create save dir
     if not os.path.exists(save_path):
@@ -38,6 +39,16 @@ if __name__ == "__main__":
     language_mapping = feature_mappings['language-index']
     sex_mapping = feature_mappings['sex-index']
     f.close()
+
+    # load transformation
+    if transformation_file is not None:
+        raw_transformation_text = read_textfile(transformation_file)
+        transformation = json.loads(raw_transformation_text)
+        shift = transformation['shift']
+        scale = 1 / transformation['scale']
+    else:
+        shift = 0.0
+        scale = 1.0
 
     # get all mfcc files from source path
     mfcc_files = files_in_directory(source_path, ['**/*_mfcc_*.npy'], recursive=True)
@@ -105,12 +116,17 @@ if __name__ == "__main__":
         with torch.no_grad():
             signal = model(sample_indices, modulation_input)
             signal = signal.cpu().detach().numpy().reshape(signal.shape[0])
+            signal = (signal * scale) + shift
 
             #audio_file = os.path.join(source_path, 'lang-english_speaker-00_trial-14_digit-4.flac')
             #original, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
+            #audio_file = os.path.join(source_path, 'lang-german_speaker-14_digit-7_trial-13.wav')
+            #original2, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
             #print(original)
+            #print(original2)
             #print(signal)
             #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(original), np.min(original), np.mean(original), np.std(original)))
+            #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(original2), np.min(original2), np.mean(original2), np.std(original2)))
             #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(signal), np.min(signal), np.mean(signal), np.std(signal)))
 
             filename = '{}-lang-{}-sex-{}-digit-{}.wav'.format(i, language, sex, digit)

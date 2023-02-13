@@ -4,7 +4,9 @@ import numpy as np
 
 if __name__ == '__main__':
     data_path = os.path.join(os.getcwd(), 'Dataset', 'training')
-    dataset = DigitAudioDataset(data_path, audio_sample_coverage=0.2, shuffle_audio_samples=False)
+    transformation_file = os.path.join(os.getcwd(), 'Dataset', 'transformation.json')
+    dataset = DigitAudioDataset(data_path, audio_sample_coverage=0.2, shuffle_audio_samples=False,
+                                transformation_file=transformation_file)
 
     data_pair = dataset[0]
     print(len(dataset))
