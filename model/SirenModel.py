@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from model.ModulationLayer import FiLM, MappingNetwork
+from model.initialization import init_network_parameters
 
 
 class SineLayerWithFilm(nn.Module):
@@ -30,8 +31,7 @@ class SineLayerWithFilm(nn.Module):
     def init_weights(self):
         with torch.no_grad():
             if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features,
-                                            1 / self.in_features)
+                self.linear.weight.uniform_(-1 / self.in_features, 1 / self.in_features)
             else:
                 self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
                                             np.sqrt(6 / self.in_features) / self.omega_0)
@@ -57,6 +57,8 @@ class SirenModelWithFiLM(nn.Module):
         self.siren_net.append(SineLayerWithFilm(hidden_features, out_features, use_film=False, omega_0=omega_0))
 
         self.modulation_net = MappingNetwork(mod_features, hidden_features, mod_layer)
+
+        init_network_parameters(self)
 
     def forward(self, x, modulation_input):
 

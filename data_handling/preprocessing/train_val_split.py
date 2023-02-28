@@ -24,7 +24,8 @@ def split_train_val(source_path, training_folder, validation_folder, split_facto
 
     file_counts = file_count_to_split.items()
 
-    for group, split_count in tqdm(file_counts, total=file_count_to_split.size, unit="Speaker group"):
+    for group, split_count in tqdm(file_counts, total=file_count_to_split.size, unit="Speaker group",
+                                   desc='Split Data into Training and Validation Data'):
         speaker, language, digit = group
 
         group_files = metadatas_df.query(f'speaker=="{speaker}" & language=="{language}" & digit=="{digit}"')[

@@ -31,8 +31,8 @@ if __name__ == '__main__':
         split_train_val(samples_directory, training_directory, validation_directory)
 
     if args.mfcc:
-        save_mfcc_for_trials(training_directory)
-        save_mfcc_for_trials(validation_directory)
+        save_mfcc_for_trials(training_directory, n_mfcc=20)
+        save_mfcc_for_trials(validation_directory, n_mfcc=20)
 
     if args.spectrogram:
         save_spectrogram_for_trials(training_directory)

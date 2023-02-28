@@ -15,18 +15,18 @@ def calculate_mfcc_for_trial(trial_file,  n_mfcc=50):
     hop_length = len(audio_samples)+1
     mfcc_coefficients = librosa.feature.mfcc(y=audio_samples, sr=audio_sampling_rate, n_mfcc=n_mfcc,
                                              n_fft=n_fft, hop_length=hop_length)
+
     return np.transpose(mfcc_coefficients, (1, 0))
 
 
-def save_mfcc_for_trials(samples_directory):
+def save_mfcc_for_trials(samples_directory, n_mfcc=50):
     audio_files = util.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 
     print('Found {} Audio Files'.format(len(audio_files)))
 
-    for file in tqdm(audio_files):
+    for file in tqdm(audio_files, desc='Generate MFCC\'s', unit='Audio Files'):
         trial_name = os.path.splitext(os.path.basename(file))[0]
-        n_mfcc = 50
 
         mfcc_file = os.path.join(os.path.dirname(
             file), '{}_mfcc_{}.npy'.format(trial_name, n_mfcc))

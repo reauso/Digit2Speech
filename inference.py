@@ -22,15 +22,14 @@ if __name__ == "__main__":
     # define necessary paths
     source_path = os.path.join(os.getcwd(), os.path.normpath('Dataset/validation'))
     save_path = os.path.join(os.getcwd(), 'GeneratedAudio')
-    experiment_name = 'train_2023-02-06_14-05-52'
-    trial_name = 'train_fc3e1_00054_54_SIREN_hidden_features=64,SIREN_mod_features=348,SIREN_num_layers=4,audio_sample_coverage=0.4000,batch_size=40_2023-02-07_01-13-47'
+    experiment_name = 'train_2023-02-24_18-32-43'
+    trial_name = 'train_3eda7_00000_0_SIREN_hidden_features=256,SIREN_mod_features=348,SIREN_num_layers=3,lr=0.0010_2023-02-24_18-35-43'
     model_path = os.path.join(os.getcwd(), 'Checkpoints', experiment_name, trial_name)
     feature_mapping_file = os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')
     transformation_file = os.path.normpath(os.getcwd() + '/Dataset/transformation.json')
 
     # create save dir
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
+    os.makedirs(os.path.join(save_path, experiment_name), exist_ok=True)
 
     # load feature mappings
     f = open(feature_mapping_file)
@@ -50,10 +49,6 @@ if __name__ == "__main__":
         shift = 0.0
         scale = 1.0
 
-    # get all mfcc files from source path
-    mfcc_files = files_in_directory(source_path, ['**/*_mfcc_*.npy'], recursive=True)
-    print('Found {} MFCC Source files'.format(len(mfcc_files)))
-
     # create model instance
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model_config = json.loads(read_textfile(os.path.join(model_path, 'params.json')))
@@ -64,6 +59,10 @@ if __name__ == "__main__":
                                mod_features=model_config['num_mfccs'] + 3)
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
+
+    # get all mfcc files from source path
+    mfcc_files = files_in_directory(source_path, ['**/*_mfcc_{}.npy'.format(model_config['num_mfccs'])], recursive=True)
+    print('Found {} MFCC Source files'.format(len(mfcc_files)))
 
     # load model state
     load_file_path = os.path.join(model_path, "checkpoint")
@@ -118,19 +117,27 @@ if __name__ == "__main__":
             signal = signal.cpu().detach().numpy().reshape(signal.shape[0])
             signal = (signal * scale) + shift
 
-            #audio_file = os.path.join(source_path, 'lang-english_speaker-00_trial-14_digit-4.flac')
-            #original, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
-            #audio_file = os.path.join(source_path, 'lang-german_speaker-14_digit-7_trial-13.wav')
-            #original2, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
-            #print(original)
-            #print(original2)
-            #print(signal)
-            #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(original), np.min(original), np.mean(original), np.std(original)))
+            audio_file = os.path.join(source_path, 'lang-english_speaker-13_digit-0_trial-12.wav')
+            original, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
+            print(original)
+            print(signal)
+            print('original max {}, min: {}, mean: {}, std: {}'.format(np.max(original), np.min(original), np.mean(original), np.std(original)))
             #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(original2), np.min(original2), np.mean(original2), np.std(original2)))
-            #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(signal), np.min(signal), np.mean(signal), np.std(signal)))
+            print('max {}, min: {}, mean: {}, std: {}'.format(np.max(signal), np.min(signal), np.mean(signal), np.std(signal)))
 
             filename = '{}-lang-{}-sex-{}-digit-{}.wav'.format(i, language, sex, digit)
             #soundfile.write(os.path.join(save_path, filename + 'orig.wav'), original, sample_rate)
-            soundfile.write(os.path.join(save_path, filename), signal, sample_rate)
-            #exit()
+            soundfile.write(os.path.join(save_path, experiment_name, filename), signal, sample_rate)
+            exit()
+
+            """
+            audio_samples, audio_sampling_rate = librosa.load(file, sr=librosa.get_samplerate(file), mono=True)
+            img = cv2.imread(spectrogram_file, cv2.IMREAD_GRAYSCALE)
+            img = normalize_numpy(img, (-80.0, 0.0), current_range=(0.0, 255.0))
+            spec = librosa.db_to_power(img)
+            signal = librosa.feature.inverse.mel_to_audio(spec, audio_sampling_rate, hop_length=512, length=96000)
+    
+            file_file = os.path.join(os.path.dirname(file), '{}_file.wav'.format(trial_name))
+            soundfile.write(file_file, signal, audio_sampling_rate)
+            """
 

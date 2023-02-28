@@ -1,10 +1,3 @@
-"""
-Modulation Layer for PyTorch
-Author: Alexander Pech
-Last-Edit: 20.05.22
-
-- Feature-wise Linear Modulation (FiLM)
-"""
 import torch
 import torch.nn as nn
 import unittest

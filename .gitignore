@@ -132,3 +132,5 @@ dmypy.json
 Dataset/
 Checkpoints/
 GeneratedAudio/
+
+temp.py

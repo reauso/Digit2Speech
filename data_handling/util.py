@@ -1,6 +1,9 @@
 import glob
 import os.path
+import random
+import threading
 
+import numpy as np
 import soundfile
 import re
 import torch
@@ -57,6 +60,29 @@ def write_trial_to_file(output_folder, language, speaker, digit, trial, signal, 
                     speaker, digit, trial), signal, sample_rate)
 
 
+def normalize_numpy(array, desired_range, current_range=None):
+    """
+    Normalizes a np array to range [-1;1]
+    """
+    if current_range is None:
+        min_value = np.min(array)
+        max_value = np.max(array)
+        current_range = (min_value, max_value)
+
+    current_delta = current_range[1] - current_range[0]
+    desired_delta = desired_range[1] - desired_range[0]
+
+    if current_delta <= 0:
+        raise ValueError('current_range min is bigger than max')
+    if desired_delta <= 0:
+        raise ValueError('desired_delta min is bigger than max')
+
+    scale_factor = desired_delta / current_delta
+    array = (array - current_range[0]) * scale_factor
+    array += desired_range[0]
+    return array
+
+
 def normalize_tensor(tensor, min_value=None, max_value=None):
     """
     Normalizes a tensor to range [-1;1]
@@ -71,3 +97,20 @@ def normalize_tensor(tensor, min_value=None, max_value=None):
     scale_factor = 2 / delta
     tensor = tensor * scale_factor
     return tensor - 1
+
+
+lock = threading.Lock()
+
+
+def object_to_float_tensor(obj, tensor_length):
+    vec = torch.zeros(tensor_length, dtype=torch.float)
+
+    with lock:
+        state = random.getstate()
+        random.seed(hash(obj))
+        for i in range(tensor_length):
+            vec[i] = random.uniform(-1, 1)
+        random.setstate(state)
+
+    return vec
+

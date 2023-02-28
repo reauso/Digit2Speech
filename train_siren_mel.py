@@ -1,10 +1,8 @@
 import os
-import time
 
 import numpy as np
 import ray
 import torch
-import torch.nn as nn
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
@@ -13,6 +11,18 @@ from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDataset
 from model.SirenModel import SirenModelWithFiLM
+
+
+def get_log_cosh_loss(prediction, target):
+    loss = torch.mean(torch.log(torch.cosh(prediction - target)))
+    return loss
+
+
+def parse_batch_size(encoded_batch_size, num_samples):
+    if encoded_batch_size == 'per_file':
+        return num_samples
+    else:
+        raise NotImplementedError("The encoded batch size '{}' is not implemented!".format(encoded_batch_size))
 
 
 def train(config):
@@ -64,7 +74,9 @@ def train(config):
         optimizer.load_state_dict(optimizer_state)'''
 
     # necessary values and objects for training loop
-    criterion = nn.MSELoss()
+    criterion = torch.nn.MSELoss(reduction='mean')
+    #criterion = get_log_cosh_loss
+    lambda_criterion = 1.0
 
     # training loop
     for epoch in range(config["epochs"]):
@@ -78,7 +90,7 @@ def train(config):
             audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
 
             # print status
-            #print("Audio File {}/{} with {} samples".format(j, len(train_dataset_loader), audio_samples.size()[0]))
+            # print("Audio File {}/{} with {} samples".format(j, len(train_dataset_loader), audio_samples.size()[0]))
 
             # convert metadata into one array with floats values
             modulation_input = torch.cat([
@@ -88,11 +100,12 @@ def train(config):
                 metadata['mfcc_coefficients']], dim=1).to(device, non_blocking=True)
 
             num_samples = audio_samples.size()[0]
-            num_batches = int(num_samples / config['batch_size'])
-            num_batches = num_batches if num_samples % config['batch_size'] == 0 else num_batches + 1
+            batch_size = parse_batch_size(config['batch_size'], num_samples) if isinstance(config['batch_size'], str) else config['batch_size']
+            num_batches = int(num_samples / batch_size)
+            num_batches = num_batches if num_samples % batch_size == 0 else num_batches + 1
             for i in range(num_batches):
-                start_index = i * config['batch_size']
-                end_index = min((i + 1) * config['batch_size'], num_samples)
+                start_index = i * batch_size
+                end_index = min((i + 1) * batch_size, num_samples)
 
                 audio_sample_batch = audio_samples[start_index: end_index]
                 audio_sample_indices_batch = audio_sample_indices[start_index: end_index]
@@ -102,9 +115,11 @@ def train(config):
 
                 # get prediction
                 prediction = model(audio_sample_indices_batch, modulation_input)
+                #print('prediction: {}'.format(prediction))
 
                 # loss calculation
-                loss = criterion(prediction, audio_sample_batch)
+                loss = criterion(prediction, audio_sample_batch) * lambda_criterion
+                #print('loss: {}'.format(loss))
 
                 # backpropagation
                 loss.backward()
@@ -120,7 +135,7 @@ def train(config):
             audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
 
             # print status
-            #print("Audio File {}/{} with {} samples".format(i, len(train_dataset_loader), audio_samples.size()[0]))
+            # print("Audio File {}/{} with {} samples".format(i, len(train_dataset_loader), audio_samples.size()[0]))
 
             # convert metadata into one array with floats values
             modulation_input = torch.cat([
@@ -131,7 +146,7 @@ def train(config):
 
             with torch.no_grad():
                 prediction = model(audio_sample_indices, modulation_input)
-                loss = criterion(prediction, audio_samples)
+                loss = criterion(prediction, audio_samples) * lambda_criterion
                 eval_losses.append(loss.item())
 
         # save model after each epoch
@@ -148,28 +163,28 @@ def train(config):
 
 if __name__ == "__main__":
     # ray config
-    num_trials = 100
-    max_num_epochs = 20
-    gpus_per_trial = 0.33
+    num_trials = 1
+    max_num_epochs = 30
+    gpus_per_trial = 0.5
 
     # config
     config = {
         # data
         "training_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/training")),
         "validation_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/validation")),
-        "audio_sample_coverage": tune.quniform(0.2, 0.4, 0.1),
-        "shuffle_audio_samples": tune.choice([True, False]),
-        "num_mfccs": 50,
+        "audio_sample_coverage": 1.0,  # tune.choice([0.3, 0.6, 0.9]),
+        "shuffle_audio_samples": False,  # tune.choice([True, False]),
+        "num_mfccs": 50,  # tune.choice([20, 50, 128]),
         "feature_mapping_file": os.path.normpath(os.getcwd() + "/data_handling/feature_mapping.json"),
         'transformation_file': os.path.normpath(os.getcwd() + "/Dataset/transformation.json"),
 
         # data loading
-        'batch_size': tune.choice([2048, 4096, 8192]),
+        'batch_size': 'per_file',  # tune.choice([4096, 6144, 8192]),
         'shuffle_audio_files': True,
 
         # model
-        "SIREN_hidden_features": tune.choice([64, 128]),
-        "SIREN_num_layers": tune.choice([3, 4, 5]),
+        "SIREN_hidden_features": tune.choice([128, 256]),
+        "SIREN_num_layers": tune.choice([3, 5, 8]),
         "SIREN_mod_features": tune.choice([128, 256, 348]),
 
         # training
@@ -184,7 +199,7 @@ if __name__ == "__main__":
     }
 
     ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
-    #ray.init()
+    # ray.init()
     scheduler = ASHAScheduler(
         metric="eval_loss",
         mode="min",
@@ -206,8 +221,9 @@ if __name__ == "__main__":
     )
 
     best_trial = result.get_best_trial("eval_loss", "min", "last")
+    print('Best trial Name: {}'.format(best_trial))
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["eval_loss"]))
 
-    #train(config)
+    # train(config)
