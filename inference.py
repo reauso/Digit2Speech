@@ -91,18 +91,16 @@ if __name__ == "__main__":
 
         # define metadata dict
         metadata = {
-            "language": language_mapping[language],
-            "digit": int(digit),
-            "sex": sex_mapping[sex],
+            "language": language,
+            "digit": digit,
+            "sex": sex,
             "mfcc_coefficients": mfcc_coefficients,
         }
 
         # metadata to normalized float tensor
-        metadata['language'] = normalize_tensor(torch.FloatTensor([metadata['language']]), min_value=0,
-                                                max_value=len(language_mapping) - 1)
-        metadata['sex'] = normalize_tensor(torch.FloatTensor([metadata['sex']]), min_value=0,
-                                           max_value=len(sex_mapping) - 1)
-        metadata['digit'] = normalize_tensor(torch.FloatTensor([metadata['digit']]), min_value=0, max_value=9)
+        language = object_to_float_tensor(language, self.num_mfcc)
+        sex = object_to_float_tensor(sex, self.num_mfcc)
+        digit = object_to_float_tensor(digit, self.num_mfcc)
 
         # metadata to tensor
         modulation_input = torch.cat([

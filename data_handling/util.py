@@ -60,9 +60,14 @@ def write_trial_to_file(output_folder, language, speaker, digit, trial, signal, 
                     speaker, digit, trial), signal, sample_rate)
 
 
-def normalize_numpy(array, desired_range, current_range=None):
+def map_numpy_values(array, desired_range, current_range=None):
     """
-    Normalizes a np array to range [-1;1]
+    Normalizes a numpy array to a desired range.
+    :param array: The array to map.
+    :param desired_range: The desired range.
+    :param current_range: The current range. If None is given, then this value is determined
+    by numpy's min and max function over the array.
+    :return: A Numpy array with arrays values mapped to the desired range.
     """
     if current_range is None:
         min_value = np.min(array)
@@ -86,6 +91,12 @@ def normalize_numpy(array, desired_range, current_range=None):
 def normalize_tensor(tensor, min_value=None, max_value=None):
     """
     Normalizes a tensor to range [-1;1]
+    :param tensor: The tensor to normalize.
+    :param min_value: The min value to use in mapping calculation. If none is given, then this
+    value is determined by torch's min function.
+    :param max_value: The max value to use in mapping calculation. If none is given, then this
+    value is determined by torch's max function.
+    :return: A tensor with values from tensor mapped to [-1;1]
     """
     min_value = min_value if min_value is not None else torch.min(tensor)
     max_value = max_value if max_value is not None else torch.max(tensor)
