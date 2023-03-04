@@ -8,14 +8,32 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 from ray.air import session
 from torch.utils.data import DataLoader
+from pytorch_msssim import ms_ssim
 
-from data_handling.Dataset import DigitAudioDataset
+from data_handling.Dataset import DigitAudioDatasetForSpectrograms
 from model.SirenModel import SirenModelWithFiLM
 
 
-def get_log_cosh_loss(prediction, target):
-    loss = torch.mean(torch.log(torch.cosh(prediction - target)))
-    return loss
+class CombinedLoss:
+    def __init__(self):
+        self.l1 = torch.nn.L1Loss()
+        self.ms_ssim = ms_ssim
+
+        self.lambda_l1 = 1.0
+        self.lambda_ms_ssim = 1.0
+
+    def __call__(self, prediction, target):
+        self.loss_l1 = self.l1(prediction, target)
+
+        prediction_ms_ssim = (prediction + 1) * 0.5
+        target_ms_ssim = (target + 1) * 0.5
+
+        print(prediction_ms_ssim.shape)
+        print(target_ms_ssim.shape)
+        self.loss_ms_ssim = self.ms_ssim(prediction_ms_ssim, target_ms_ssim, data_range=1)
+
+        loss = self.loss_l1 * self.lambda_l1 + self.loss_ms_ssim * self.lambda_ms_ssim
+        return loss
 
 
 def parse_batch_size(encoded_batch_size, num_samples):
@@ -31,34 +49,28 @@ def train(config):
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     # create datasets and data loaders
-    train_dataset = DigitAudioDataset(
+    train_dataset = DigitAudioDatasetForSpectrograms(
         path=config['training_dataset_path'],
-        audio_sample_coverage=config['audio_sample_coverage'],
-        shuffle_audio_samples=config['shuffle_audio_samples'],
         num_mfcc=config['num_mfccs'],
         feature_mapping_file=config['feature_mapping_file'],
-        transformation_file=config['transformation_file'],
     )
     train_dataset_loader = DataLoader(train_dataset, batch_size=1, prefetch_factor=10, pin_memory=True,
                                       shuffle=config['shuffle_audio_files'], num_workers=4, drop_last=False)
 
-    validation_dataset = DigitAudioDataset(
+    validation_dataset = DigitAudioDatasetForSpectrograms(
         path=config['validation_dataset_path'],
-        audio_sample_coverage=1.0,
-        shuffle_audio_samples=False,
         num_mfcc=config['num_mfccs'],
         feature_mapping_file=config['feature_mapping_file'],
-        transformation_file=config['transformation_file'],
     )
     validation_dataset_loader = DataLoader(validation_dataset, batch_size=1, prefetch_factor=10, pin_memory=True,
                                            shuffle=False, num_workers=4, drop_last=False)
 
     # create model
-    model = SirenModelWithFiLM(in_features=1,
-                               out_features=1,
+    model = SirenModelWithFiLM(in_features=2,  # x coord and y coord
+                               out_features=1,  # grayscale value of spectrogram at (x,y) coord
                                hidden_features=config["SIREN_hidden_features"],
                                num_layers=config["SIREN_num_layers"],
-                               mod_features=config['num_mfccs'] + 3)
+                               mod_features=config['num_mfccs'] * 4)
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 
@@ -74,8 +86,7 @@ def train(config):
         optimizer.load_state_dict(optimizer_state)'''
 
     # necessary values and objects for training loop
-    criterion = torch.nn.MSELoss(reduction='mean')
-    #criterion = get_log_cosh_loss
+    criterion = CombinedLoss()
     lambda_criterion = 1.0
 
     # training loop
@@ -85,12 +96,11 @@ def train(config):
 
         for j, audio_file_data in enumerate(train_dataset_loader):
             # get batch data
-            metadata, audio_samples, audio_sample_indices = audio_file_data
-            audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
-            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
-
-            # print status
-            # print("Audio File {}/{} with {} samples".format(j, len(train_dataset_loader), audio_samples.size()[0]))
+            metadata, spectrogram, coordinates = audio_file_data
+            spectrogram_shape = spectrogram.size()
+            spectrogram = spectrogram.reshape((spectrogram_shape[0], spectrogram_shape[1], spectrogram_shape[2], 1))
+            spectrogram = spectrogram.to(device, non_blocking=True)
+            coordinates = coordinates.to(device, non_blocking=True)
 
             # convert metadata into one array with floats values
             modulation_input = torch.cat([
@@ -99,43 +109,38 @@ def train(config):
                 metadata['sex'],
                 metadata['mfcc_coefficients']], dim=1).to(device, non_blocking=True)
 
-            num_samples = audio_samples.size()[0]
-            batch_size = parse_batch_size(config['batch_size'], num_samples) if isinstance(config['batch_size'], str) else config['batch_size']
-            num_batches = int(num_samples / batch_size)
-            num_batches = num_batches if num_samples % batch_size == 0 else num_batches + 1
-            for i in range(num_batches):
-                start_index = i * batch_size
-                end_index = min((i + 1) * batch_size, num_samples)
+            # zero gradients
+            optimizer.zero_grad()
 
-                audio_sample_batch = audio_samples[start_index: end_index]
-                audio_sample_indices_batch = audio_sample_indices[start_index: end_index]
+            # get prediction
+            prediction = model(coordinates, modulation_input)
+            prediction_shape = spectrogram.size()
+            prediction = prediction.reshape((prediction_shape[0], prediction_shape[1], prediction_shape[2], 1))
+            # print('prediction: {}'.format(prediction))
+            # print('prediction size: {}'.format(prediction.size()))
 
-                # zero gradients
-                optimizer.zero_grad()
+            # loss calculation
+            loss = criterion(prediction, spectrogram) * lambda_criterion
+            # print('loss: {}'.format(loss))
 
-                # get prediction
-                prediction = model(audio_sample_indices_batch, modulation_input)
-                #print('prediction: {}'.format(prediction))
+            # backpropagation
+            loss.backward()
+            optimizer.step()
 
-                # loss calculation
-                loss = criterion(prediction, audio_sample_batch) * lambda_criterion
-                #print('loss: {}'.format(loss))
-
-                # backpropagation
-                loss.backward()
-                optimizer.step()
-
-                # documentation
-                train_losses.append(loss.item())
+            # documentation
+            train_losses.append({
+                'loss': loss.item(),
+                'l1': criterion.loss_l1.item(),
+                'ms_ssim': criterion.loss_ms_ssim.item(),
+            })
 
         for i, audio_file_data in enumerate(validation_dataset_loader):
             # get batch data
-            metadata, audio_samples, audio_sample_indices = audio_file_data
-            audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
-            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
-
-            # print status
-            # print("Audio File {}/{} with {} samples".format(i, len(train_dataset_loader), audio_samples.size()[0]))
+            metadata, spectrogram, coordinates = audio_file_data
+            spectrogram_shape = spectrogram.size()
+            spectrogram = spectrogram.reshape((spectrogram_shape[0], spectrogram_shape[1], spectrogram_shape[2], 1))
+            spectrogram = spectrogram.to(device, non_blocking=True)
+            coordinates = coordinates.to(device, non_blocking=True)
 
             # convert metadata into one array with floats values
             modulation_input = torch.cat([
@@ -145,9 +150,13 @@ def train(config):
                 metadata['mfcc_coefficients']], dim=1).to(device, non_blocking=True)
 
             with torch.no_grad():
-                prediction = model(audio_sample_indices, modulation_input)
-                loss = criterion(prediction, audio_samples) * lambda_criterion
-                eval_losses.append(loss.item())
+                prediction = model(coordinates, modulation_input)
+                loss = criterion(prediction, spectrogram) * lambda_criterion
+                eval_losses.append({
+                    'loss': loss.item(),
+                    'l1': criterion.loss_l1.item(),
+                    'ms_ssim': criterion.loss_ms_ssim.item(),
+                })
 
         # save model after each epoch
         path = os.path.join(session.get_trial_dir(), "checkpoint")
@@ -155,8 +164,12 @@ def train(config):
 
         # metrics
         metric_dict = {
-            'train_loss': np.mean(np.array(train_losses)),
-            'eval_loss': np.mean(np.array(eval_losses)),
+            'train_loss': np.mean(np.array([losses['loss'] for losses in train_losses])),
+            'train_l1': np.mean(np.array([losses['l1'] for losses in train_losses])),
+            'train_ms_ssim': np.mean(np.array([losses['ms_ssim'] for losses in train_losses])),
+            'eval_loss': np.mean(np.array([losses['loss'] for losses in eval_losses])),
+            'eval_l1': np.mean(np.array([losses['l1'] for losses in eval_losses])),
+            'eval_ms_ssim': np.mean(np.array([losses['ms_ssim'] for losses in eval_losses])),
         }
         tune.report(**metric_dict)
 
@@ -172,8 +185,6 @@ if __name__ == "__main__":
         # data
         "training_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/training")),
         "validation_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/validation")),
-        "audio_sample_coverage": 1.0,  # tune.choice([0.3, 0.6, 0.9]),
-        "shuffle_audio_samples": False,  # tune.choice([True, False]),
         "num_mfccs": 50,  # tune.choice([20, 50, 128]),
         "feature_mapping_file": os.path.normpath(os.getcwd() + "/data_handling/feature_mapping.json"),
         'transformation_file': os.path.normpath(os.getcwd() + "/Dataset/transformation.json"),
@@ -183,12 +194,12 @@ if __name__ == "__main__":
         'shuffle_audio_files': True,
 
         # model
-        "SIREN_hidden_features": tune.choice([128, 256]),
-        "SIREN_num_layers": tune.choice([3, 5, 8]),
-        "SIREN_mod_features": tune.choice([128, 256, 348]),
+        "SIREN_hidden_features": 128,  # tune.choice([128, 256]),
+        "SIREN_num_layers": 5,  # tune.choice([3, 5, 8]),
+        "SIREN_mod_features": 256,  # tune.choice([128, 256, 348]),
 
         # training
-        "lr": tune.choice([0.001, 0.002, 0.003]),
+        "lr": 0.001,  # tune.choice([0.001, 0.002, 0.003]),
         "epochs": 50,
     }
 
@@ -198,7 +209,7 @@ if __name__ == "__main__":
         "conda": "./environment.yml",
     }
 
-    ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
+    '''ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
     # ray.init()
     scheduler = ASHAScheduler(
         metric="eval_loss",
@@ -224,6 +235,6 @@ if __name__ == "__main__":
     print('Best trial Name: {}'.format(best_trial))
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
-        best_trial.last_result["eval_loss"]))
+        best_trial.last_result["eval_loss"]))'''
 
-    # train(config)
+    train(config)

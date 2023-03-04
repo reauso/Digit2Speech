@@ -1,5 +1,6 @@
 import json
 import os
+import cv2
 
 import librosa
 import numpy as np
@@ -7,7 +8,8 @@ import soundfile
 import torch
 from tqdm import tqdm
 
-from data_handling.util import read_textfile, files_in_directory, get_metadata_from_file_name, normalize_tensor
+from data_handling.util import read_textfile, files_in_directory, get_metadata_from_file_name, normalize_tensor, \
+    object_to_float_tensor, map_numpy_values
 from model.SirenModel import SirenModelWithFiLM
 
 if __name__ == "__main__":
@@ -22,11 +24,10 @@ if __name__ == "__main__":
     # define necessary paths
     source_path = os.path.join(os.getcwd(), os.path.normpath('Dataset/validation'))
     save_path = os.path.join(os.getcwd(), 'GeneratedAudio')
-    experiment_name = 'train_2023-02-24_18-32-43'
-    trial_name = 'train_3eda7_00000_0_SIREN_hidden_features=256,SIREN_mod_features=348,SIREN_num_layers=3,lr=0.0010_2023-02-24_18-35-43'
+    experiment_name = 'train_2023-03-04_17-30-15'
+    trial_name = 'train_d8263_00000_0_2023-03-04_17-34-36'
     model_path = os.path.join(os.getcwd(), 'Checkpoints', experiment_name, trial_name)
     feature_mapping_file = os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')
-    transformation_file = os.path.normpath(os.getcwd() + '/Dataset/transformation.json')
 
     # create save dir
     os.makedirs(os.path.join(save_path, experiment_name), exist_ok=True)
@@ -35,28 +36,16 @@ if __name__ == "__main__":
     f = open(feature_mapping_file)
     feature_mappings = json.load(f)
     speaker_sex_mapping = feature_mappings['speakers-sex']
-    language_mapping = feature_mappings['language-index']
-    sex_mapping = feature_mappings['sex-index']
     f.close()
-
-    # load transformation
-    if transformation_file is not None:
-        raw_transformation_text = read_textfile(transformation_file)
-        transformation = json.loads(raw_transformation_text)
-        shift = transformation['shift']
-        scale = 1 / transformation['scale']
-    else:
-        shift = 0.0
-        scale = 1.0
 
     # create model instance
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model_config = json.loads(read_textfile(os.path.join(model_path, 'params.json')))
-    model = SirenModelWithFiLM(in_features=1,
-                               out_features=1,
+    model = SirenModelWithFiLM(in_features=2,  # x coord and y coord
+                               out_features=1,  # grayscale value of spectrogram at (x,y) coord
                                hidden_features=model_config["SIREN_hidden_features"],
                                num_layers=model_config["SIREN_num_layers"],
-                               mod_features=model_config['num_mfccs'] + 3)
+                               mod_features=model_config['num_mfccs'] * 4)
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 
@@ -70,9 +59,17 @@ if __name__ == "__main__":
     model_state, _ = torch.load(load_file_path)
     model.load_state_dict(model_state)
 
+    # get coordinates
+    spectrogram_shape = [128, 188]
+    coordinates = np.stack(np.mgrid[:spectrogram_shape[0], :spectrogram_shape[1]], axis=-1)[None, ...].astype(
+        np.float32)
+    coordinates = torch.FloatTensor(coordinates)
+    coordinates[:, :, 0] = normalize_tensor(coordinates[:, :, 0])
+    coordinates[:, :, 1] = normalize_tensor(coordinates[:, :, 1])
+    coordinates = coordinates.to(device)
+    print(coordinates.size())
+
     # generate audio
-    sample_indices = torch.arange(start=0.0, end=sample_rate * seconds, step=1, device=device, requires_grad=False)
-    sample_indices = sample_indices[:, None]
     pipeline = tqdm(mfcc_files, unit='Files', desc='Generate Audio Files')
     for i, file in enumerate(pipeline):
         filename = os.path.basename(file)
@@ -90,17 +87,13 @@ if __name__ == "__main__":
             sex = speaker_sex_mapping[speaker]
 
         # define metadata dict
+        num_mfcc = len(mfcc_coefficients)
         metadata = {
-            "language": language,
-            "digit": digit,
-            "sex": sex,
+            "language": object_to_float_tensor(language, num_mfcc),
+            "digit": object_to_float_tensor(digit, num_mfcc),
+            "sex": object_to_float_tensor(sex, num_mfcc),
             "mfcc_coefficients": mfcc_coefficients,
         }
-
-        # metadata to normalized float tensor
-        language = object_to_float_tensor(language, self.num_mfcc)
-        sex = object_to_float_tensor(sex, self.num_mfcc)
-        digit = object_to_float_tensor(digit, self.num_mfcc)
 
         # metadata to tensor
         modulation_input = torch.cat([
@@ -111,21 +104,30 @@ if __name__ == "__main__":
         modulation_input = modulation_input[None, :]
 
         with torch.no_grad():
-            signal = model(sample_indices, modulation_input)
-            signal = signal.cpu().detach().numpy().reshape(signal.shape[0])
-            signal = (signal * scale) + shift
+            filename_image = '{}-lang-{}-sex-{}-digit-{}.png'.format(i, language, sex, digit)
+            filename_audio = '{}-lang-{}-sex-{}-digit-{}.wav'.format(i, language, sex, digit)
+            filepath_image = os.path.join(save_path, experiment_name, filename_image)
+            filepath_audio = os.path.join(save_path, experiment_name, filename_audio)
 
-            audio_file = os.path.join(source_path, 'lang-english_speaker-13_digit-0_trial-12.wav')
-            original, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
-            print(original)
-            print(signal)
-            print('original max {}, min: {}, mean: {}, std: {}'.format(np.max(original), np.min(original), np.mean(original), np.std(original)))
-            #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(original2), np.min(original2), np.mean(original2), np.std(original2)))
-            print('max {}, min: {}, mean: {}, std: {}'.format(np.max(signal), np.min(signal), np.mean(signal), np.std(signal)))
+            # get prediction
+            spectrogram = model(coordinates, modulation_input)
+            spectrogram_shape = spectrogram.size()
+            spectrogram = spectrogram.reshape((spectrogram_shape[1], spectrogram_shape[2]))
+            spectrogram = spectrogram.cpu().detach().numpy()
 
-            filename = '{}-lang-{}-sex-{}-digit-{}.wav'.format(i, language, sex, digit)
-            #soundfile.write(os.path.join(save_path, filename + 'orig.wav'), original, sample_rate)
-            soundfile.write(os.path.join(save_path, experiment_name, filename), signal, sample_rate)
+            # save spectrogram image
+            spectrogram_image = map_numpy_values(spectrogram, (0.0, 255.0), current_range=(-1.0, 1.0))
+            spectrogram_image = np.round(spectrogram_image).astype(np.int32)
+            print('max {}, min: {}, mean: {}, std: {}'.format(np.max(spectrogram_image), np.min(spectrogram_image),
+                                                              np.mean(spectrogram_image), np.std(spectrogram_image)))
+            cv2.imwrite(filepath_image, spectrogram_image)
+
+            # generate audio
+            spectrogram = map_numpy_values(spectrogram, (-80.0, 0.0), current_range=(-1.0, 1.0))
+            spectrogram = librosa.db_to_power(spectrogram)
+            signal = librosa.feature.inverse.mel_to_audio(spectrogram, sr=48000, hop_length=512, length=96000)
+            soundfile.write(filepath_audio, signal, 48000)
+
             exit()
 
             """
@@ -138,4 +140,3 @@ if __name__ == "__main__":
             file_file = os.path.join(os.path.dirname(file), '{}_file.wav'.format(trial_name))
             soundfile.write(file_file, signal, audio_sampling_rate)
             """
-

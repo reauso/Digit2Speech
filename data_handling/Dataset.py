@@ -179,7 +179,14 @@ class DigitAudioDatasetForSpectrograms(DigitAudioDataset):
         spectrogram = torch.FloatTensor(spectrogram)
         spectrogram = normalize_tensor(spectrogram, min_value=0, max_value=255)
 
-        return metadata, spectrogram
+        # get coordinates
+        spectrogram_shape = spectrogram.size()
+        coordinates = np.stack(np.mgrid[:spectrogram_shape[0], :spectrogram_shape[1]], axis=-1).astype(np.float32)
+        coordinates = torch.FloatTensor(coordinates)
+        coordinates[:, :, 0] = normalize_tensor(coordinates[:, :, 0])
+        coordinates[:, :, 1] = normalize_tensor(coordinates[:, :, 1])
+
+        return metadata, spectrogram, coordinates
 
 
 if __name__ == '__main__':
@@ -188,4 +195,6 @@ if __name__ == '__main__':
     print(dataset[0])
     data_path = os.path.abspath('./Dataset/training')
     dataset = DigitAudioDatasetForSpectrograms(data_path, num_mfcc=20)
-    print(dataset[0])
+    metadata, spectrogram = dataset[0]
+    print(metadata)
+    print(spectrogram.size())
