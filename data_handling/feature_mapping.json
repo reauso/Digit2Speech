@@ -19,13 +19,5 @@
         "16": "male",
         "17": "male",
         "18": "male"
-    },
-    "language-index": {
-        "english": 0,
-        "german": 1
-    },
-    "sex-index": {
-        "male": 0,
-        "female": 1
     }
 }

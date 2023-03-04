@@ -7,7 +7,7 @@ from data_handling import util
 from tqdm import tqdm
 import numpy as np
 
-from data_handling.util import normalize_numpy
+from data_handling.util import map_numpy_values
 
 
 def save_spectrogram_for_trials(samples_directory):
@@ -24,6 +24,6 @@ def save_spectrogram_for_trials(samples_directory):
 
         spectrogram = librosa.feature.melspectrogram(y=audio_samples, sr=audio_sampling_rate)
         spectrogram = librosa.power_to_db(spectrogram, ref=np.max)
-        spectrogram = normalize_numpy(spectrogram, (0.0, 255.0), current_range=(-80.0, 0.0))
+        spectrogram = map_numpy_values(spectrogram, (0.0, 255.0), current_range=(-80.0, 0.0))
 
         cv2.imwrite(spectrogram_file, spectrogram)
