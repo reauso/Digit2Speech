@@ -1,23 +1,28 @@
 import os
 
+import cv2
 import numpy as np
 import ray
 import torch
+from cv2.mat_wrapper import Mat
+from pytorch_msssim.ssim import _fspecial_gauss_1d, _ssim
 from ray import tune
+from ray.air import session
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
-from ray.air import session
 from torch.utils.data import DataLoader
-from pytorch_msssim import ms_ssim
+import torch.nn.functional as F
+import torchvision.transforms.functional as functional
+from torchvision.transforms import InterpolationMode
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
+from data_handling.util import map_numpy_values
 from model.SirenModel import SirenModelWithFiLM
 
 
 class CombinedLoss:
     def __init__(self):
         self.l1 = torch.nn.L1Loss()
-        self.ms_ssim = ms_ssim
 
         self.lambda_l1 = 1.0
         self.lambda_ms_ssim = 1.0
@@ -25,15 +30,91 @@ class CombinedLoss:
     def __call__(self, prediction, target):
         self.loss_l1 = self.l1(prediction, target)
 
-        prediction_ms_ssim = (prediction + 1) * 0.5
-        target_ms_ssim = (target + 1) * 0.5
+        size = prediction.size()[1:3]
+        size = [i * 4 for i in size]
 
-        print(prediction_ms_ssim.shape)
-        print(target_ms_ssim.shape)
-        self.loss_ms_ssim = self.ms_ssim(prediction_ms_ssim, target_ms_ssim, data_range=1)
+        prediction_ms_ssim = functional.resize(prediction, size=size, interpolation=InterpolationMode.NEAREST)
+        target_ms_ssim = functional.resize(target, size=size, interpolation=InterpolationMode.NEAREST)
+        self.loss_ms_ssim = self.ms_ssim(X=prediction_ms_ssim, Y=target_ms_ssim, data_range=255)
 
         loss = self.loss_l1 * self.lambda_l1 + self.loss_ms_ssim * self.lambda_ms_ssim
+
         return loss
+
+    def ms_ssim(
+            self, X, Y, data_range=255, size_average=True, win_size=11, win_sigma=1.5, win=None, weights=None,
+            K=(0.01, 0.03)
+    ):
+
+        r""" interface of ms-ssim
+        Args:
+            X (torch.Tensor): a batch of images, (N,C,[T,]H,W)
+            Y (torch.Tensor): a batch of images, (N,C,[T,]H,W)
+            data_range (float or int, optional): value range of input images. (usually 1.0 or 255)
+            size_average (bool, optional): if size_average=True, ssim of all images will be averaged as a scalar
+            win_size: (int, optional): the size of gauss kernel
+            win_sigma: (float, optional): sigma of normal distribution
+            win (torch.Tensor, optional): 1-D gauss kernel. if None, a new kernel will be created according to win_size and win_sigma
+            weights (list, optional): weights for different levels
+            K (list or tuple, optional): scalar constants (K1, K2). Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
+        Returns:
+            torch.Tensor: ms-ssim results
+        """
+        if not X.shape == Y.shape:
+            raise ValueError("Input images should have the same dimensions.")
+
+        '''for d in range(len(X.shape) - 1, 1, -1):
+            X = X.squeeze(dim=d)
+            Y = Y.squeeze(dim=d)'''
+
+        if not X.type() == Y.type():
+            raise ValueError("Input images should have the same dtype.")
+
+        if len(X.shape) == 4:
+            avg_pool = F.avg_pool2d
+        elif len(X.shape) == 5:
+            avg_pool = F.avg_pool3d
+        else:
+            raise ValueError(f"Input images should be 4-d or 5-d tensors, but got {X.shape}")
+
+        if win is not None:  # set win_size
+            win_size = win.shape[-1]
+
+        if not (win_size % 2 == 1):
+            raise ValueError("Window size should be odd.")
+
+        smaller_side = min(X.shape[-2:])
+        assert smaller_side > (win_size - 1) * (
+                2 ** 4
+        ), "Image size should be larger than %d due to the 4 downsamplings in ms-ssim" % ((win_size - 1) * (2 ** 4))
+
+        if weights is None:
+            weights = [0.0448, 0.2856, 0.3001, 0.2363, 0.1333]
+        weights = torch.FloatTensor(weights).to(X.device, dtype=X.dtype)
+
+        if win is None:
+            win = _fspecial_gauss_1d(win_size, win_sigma)
+            win = win.repeat([X.shape[1]] + [1] * (len(X.shape) - 1))
+
+        levels = weights.shape[0]
+        mcs = []
+        for i in range(levels):
+            ssim_per_channel, cs = _ssim(X, Y, win=win, data_range=data_range, size_average=False, K=K)
+
+            if i < levels - 1:
+                mcs.append(torch.relu(cs))
+                padding = [s % 2 for s in X.shape[2:]]
+                X = avg_pool(X, kernel_size=2, padding=padding)
+                Y = avg_pool(Y, kernel_size=2, padding=padding)
+
+        ssim_per_channel = torch.relu(ssim_per_channel)  # (batch, channel)
+        mcs_and_ssim = torch.stack(mcs + [ssim_per_channel], dim=0)  # (level, batch, channel)
+        ms_ssim_val = torch.prod(mcs_and_ssim ** weights.view(-1, 1, 1), dim=0)
+
+        if size_average:
+            return ms_ssim_val.mean()
+        else:
+            return ms_ssim_val.mean(1)
 
 
 def parse_batch_size(encoded_batch_size, num_samples):
@@ -93,6 +174,8 @@ def train(config):
     for epoch in range(config["epochs"]):
         train_losses = []
         eval_losses = []
+        train_prediction_img = None
+        eval_prediction_img = None
 
         for j, audio_file_data in enumerate(train_dataset_loader):
             # get batch data
@@ -134,6 +217,13 @@ def train(config):
                 'ms_ssim': criterion.loss_ms_ssim.item(),
             })
 
+            # image for tensorboard
+            '''if j == len(train_dataset_loader) - 1:
+                size = prediction.size()
+                pred_img = prediction.permute(1, 0).view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                gt_img = spectrogram.permute(1, 0).view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                train_prediction_img = np.concatenate([pred_img, gt_img], axis=-1)'''
+
         for i, audio_file_data in enumerate(validation_dataset_loader):
             # get batch data
             metadata, spectrogram, coordinates = audio_file_data
@@ -158,6 +248,13 @@ def train(config):
                     'ms_ssim': criterion.loss_ms_ssim.item(),
                 })
 
+            # image for tensorboard
+            '''if i == len(validation_dataset_loader) - 1:
+                size = prediction.size()
+                pred_img = prediction.permute(1, 0).view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                gt_img = spectrogram.permute(1, 0).view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                eval_prediction_img = np.concatenate([pred_img, gt_img], axis=-1)'''
+
         # save model after each epoch
         path = os.path.join(session.get_trial_dir(), "checkpoint")
         torch.save((model.state_dict(), optimizer.state_dict()), path)
@@ -167,9 +264,11 @@ def train(config):
             'train_loss': np.mean(np.array([losses['loss'] for losses in train_losses])),
             'train_l1': np.mean(np.array([losses['l1'] for losses in train_losses])),
             'train_ms_ssim': np.mean(np.array([losses['ms_ssim'] for losses in train_losses])),
+            # 'train_vid': train_prediction_img,
             'eval_loss': np.mean(np.array([losses['loss'] for losses in eval_losses])),
             'eval_l1': np.mean(np.array([losses['l1'] for losses in eval_losses])),
             'eval_ms_ssim': np.mean(np.array([losses['ms_ssim'] for losses in eval_losses])),
+            # 'eval_vid': eval_prediction_img,
         }
         tune.report(**metric_dict)
 
@@ -209,7 +308,7 @@ if __name__ == "__main__":
         "conda": "./environment.yml",
     }
 
-    '''ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
+    ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
     # ray.init()
     scheduler = ASHAScheduler(
         metric="eval_loss",
@@ -235,6 +334,6 @@ if __name__ == "__main__":
     print('Best trial Name: {}'.format(best_trial))
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
-        best_trial.last_result["eval_loss"]))'''
+        best_trial.last_result["eval_loss"]))
 
-    train(config)
+    # train(config)
