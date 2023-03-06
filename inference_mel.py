@@ -74,6 +74,7 @@ if __name__ == "__main__":
         spectrogram_shape = spectrogram.size()
         coordinates = coordinates.to(device, non_blocking=True)
         metadata = metadata.to(device, non_blocking=True)
+        raw_metadata = {key: value[0] for key, value in raw_metadata.items()}
 
         # tensors to device
         coordinates = coordinates.to(device, non_blocking=True)
