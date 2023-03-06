@@ -69,7 +69,7 @@ def train(config):
 
         for j, data_pair in enumerate(train_dataset_loader):
             # get batch data
-            metadata, spectrogram, coordinates = data_pair
+            metadata, _, spectrogram, coordinates = data_pair
             spectrogram_shape = spectrogram.size()
             spectrogram = spectrogram.reshape((spectrogram_shape[0], spectrogram_shape[1], spectrogram_shape[2], 1))
 
@@ -108,7 +108,7 @@ def train(config):
             #print('Train Progress: {}/{}'.format(i, len(train_dataset_loader)))
 
             # get batch data
-            metadata, spectrogram, coordinates = data_pair
+            metadata, _, spectrogram, coordinates = data_pair
             spectrogram_shape = spectrogram.size()
             spectrogram = spectrogram.reshape((spectrogram_shape[0], spectrogram_shape[1], spectrogram_shape[2], 1))
 

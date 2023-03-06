@@ -62,6 +62,14 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         language, speaker, digit, _ = get_metadata_from_file_name(current_pair['base_name'])
         sex = self.speaker_sex_mapping[speaker]
 
+        # save raw metadata
+        raw_metadata = {
+            'language': language,
+            'speaker': speaker,
+            'digit': digit,
+            'sex': sex,
+        }
+
         # metadata to normalized float tensor
         language = object_to_float_tensor(language, self.num_mfcc)
         sex = object_to_float_tensor(sex, self.num_mfcc)
@@ -80,7 +88,7 @@ class DigitAudioDataset(torch.utils.data.Dataset):
             mfcc_coefficients], dim=0)
 
         # return
-        return metadata
+        return metadata, raw_metadata
 
 
 class DigitAudioDatasetForSignal(DigitAudioDataset):
@@ -126,7 +134,7 @@ class DigitAudioDatasetForSignal(DigitAudioDataset):
         current_pair = self.data_pairs[idx]
 
         # get metadata of current_pair object
-        metadata = super().__getitem__(idx)
+        metadata, raw_metadata = super().__getitem__(idx)
 
         # load audio file
         audio_file = '{}{}'.format(current_pair['base_path'], current_pair['audio_extension'])
@@ -146,7 +154,7 @@ class DigitAudioDatasetForSignal(DigitAudioDataset):
 
         random_audio_samples = signal[random_audio_sample_indices]
 
-        return metadata, torch.FloatTensor(random_audio_samples), torch.FloatTensor(random_audio_sample_indices)
+        return metadata, raw_metadata, torch.FloatTensor(random_audio_samples), torch.FloatTensor(random_audio_sample_indices)
 
 
 class DigitAudioDatasetForSpectrograms(DigitAudioDataset):
@@ -170,7 +178,7 @@ class DigitAudioDatasetForSpectrograms(DigitAudioDataset):
         current_pair = self.data_pairs[idx]
 
         # get metadata of current_pair object
-        metadata = super().__getitem__(idx)
+        metadata, raw_metadata = super().__getitem__(idx)
 
         # load spectrogram file
         spectrogram_file = '{}_spectrogram.png'.format(current_pair['base_path'])
@@ -186,7 +194,7 @@ class DigitAudioDatasetForSpectrograms(DigitAudioDataset):
         coordinates[:, 0] = normalize_tensor(coordinates[:, 0])
         coordinates[:, 1] = normalize_tensor(coordinates[:, 1])
 
-        return metadata, spectrogram, coordinates
+        return metadata, raw_metadata, spectrogram, coordinates
 
 
 if __name__ == '__main__':
