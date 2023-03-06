@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from data_handling.util import files_in_directory, get_metadata_from_file_name, normalize_tensor, read_textfile, \
-    object_to_float_tensor
+    object_to_float_tensor, print_tensor_stats, map_numpy_values
 
 
 class DigitAudioDataset(torch.utils.data.Dataset):
@@ -73,12 +73,11 @@ class DigitAudioDataset(torch.utils.data.Dataset):
         mfcc_coefficients = torch.FloatTensor(mfcc_coefficients)
 
         # create metadata object
-        metadata = {
-            "language": language,
-            "digit": digit,
-            "sex": sex,
-            "mfcc_coefficients": mfcc_coefficients,
-        }
+        metadata = torch.cat([
+            language,
+            digit,
+            sex,
+            mfcc_coefficients], dim=0)
 
         # return
         return metadata
@@ -182,19 +181,24 @@ class DigitAudioDatasetForSpectrograms(DigitAudioDataset):
         # get coordinates
         spectrogram_shape = spectrogram.size()
         coordinates = np.stack(np.mgrid[:spectrogram_shape[0], :spectrogram_shape[1]], axis=-1).astype(np.float32)
+        coordinates = np.reshape(coordinates, (spectrogram_shape[0] * spectrogram_shape[1], 2))
         coordinates = torch.FloatTensor(coordinates)
-        coordinates[:, :, 0] = normalize_tensor(coordinates[:, :, 0])
-        coordinates[:, :, 1] = normalize_tensor(coordinates[:, :, 1])
+        coordinates[:, 0] = normalize_tensor(coordinates[:, 0])
+        coordinates[:, 1] = normalize_tensor(coordinates[:, 1])
 
         return metadata, spectrogram, coordinates
 
 
 if __name__ == '__main__':
-    data_path = os.path.abspath('./Dataset/training')
+    '''data_path = os.path.abspath('./Dataset/training')
     dataset = DigitAudioDatasetForSignal(data_path, num_mfcc=20)
-    print(dataset[0])
+    print(dataset[0])'''
     data_path = os.path.abspath('./Dataset/training')
-    dataset = DigitAudioDatasetForSpectrograms(data_path, num_mfcc=20)
-    metadata, spectrogram = dataset[0]
-    print(metadata)
-    print(spectrogram.size())
+    dataset = DigitAudioDatasetForSpectrograms(data_path, num_mfcc=50)
+    import time
+    start = time.time()
+    metadata, spectrogram, coordinates = dataset[0]
+    end = time.time()
+    print('Time needed: {} sec'.format(end-start))
+    #print(metadata)
+    #print(spectrogram.size())

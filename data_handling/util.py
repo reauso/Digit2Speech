@@ -107,7 +107,8 @@ def normalize_tensor(tensor, min_value=None, max_value=None):
 
     scale_factor = 2 / delta
     tensor = tensor * scale_factor
-    return tensor - 1
+    tensor = tensor - 1
+    return tensor
 
 
 lock = threading.Lock()
@@ -125,3 +126,20 @@ def object_to_float_tensor(obj, tensor_length):
 
     return vec
 
+
+def print_tensor_stats(tensor):
+    min = torch.min(tensor)
+    max = torch.max(tensor)
+    mean = torch.mean(tensor)
+    std = torch.std(tensor)
+    median = torch.median(tensor)
+    print('min: {}, max: {}, mean: {}, std: {}, median: {}'.format(min, max, mean, std, median))
+
+
+def print_numpy_stats(numpy_array):
+    min = np.min(numpy_array)
+    max = np.max(numpy_array)
+    mean = np.mean(numpy_array)
+    std = np.std(numpy_array)
+    median = np.median(numpy_array)
+    print('min: {}, max: {}, mean: {}, std: {}, median: {}'.format(min, max, mean, std, median))

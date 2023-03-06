@@ -5,15 +5,17 @@ import unittest
 
 class MappingNetwork(nn.Module):
 
-    def __init__(self, modulation_input_size, num_features, modulation_layer=3):
+    def __init__(self, modulation_input_size, num_dimensions, num_features, modulation_layer=3):
         super(MappingNetwork, self).__init__()
+        self.num_dimensions = num_dimensions
+        self.num_features = num_features
 
         self.modulation_layers = torch.nn.ModuleList([nn.Linear(modulation_input_size, 256)])
         for i in range(modulation_layer-1):
             self.modulation_layers.extend([nn.Linear(256, 256)])
 
-        self.lin_scale = nn.Linear(256, num_features)
-        self.lin_shift = nn.Linear(256, num_features)
+        self.lin_scale = nn.Linear(256, self.num_dimensions * self.num_features)
+        self.lin_shift = nn.Linear(256, self.num_dimensions * self.num_features)
 
         self.relu = nn.LeakyReLU(0.2,)
 
@@ -22,8 +24,8 @@ class MappingNetwork(nn.Module):
         for layer in self.modulation_layers:
             x = self.relu(layer(x))
 
-        scale = self.lin_scale(x)
-        shift = self.lin_shift(x)
+        scale = self.lin_scale(x).reshape((x.size()[0], self.num_dimensions, self.num_features))
+        shift = self.lin_shift(x).reshape((x.size()[0], self.num_dimensions, self.num_features))
 
         return scale, shift
 
@@ -34,16 +36,8 @@ class FiLM(nn.Module):
         super(FiLM, self).__init__()
 
     def forward(self, x, scale, shift):
-
         assert scale.size() == shift.size(), "Scale and Shift have different dimensions in Film Layer"
-        assert scale.size()[1] == x.size()[1], "Different number of features"
-        #
-        if len(x.size())-1 == 2:  # batch + 2d
-            scale = scale.unsqueeze(-1).expand_as(x)
-            shift = shift.unsqueeze(-1).expand_as(x)
-        elif len(x.size())-1 == 3:  # batch + 2d
-            scale = scale.unsqueeze(-1).unsqueeze(-1).expand_as(x)
-            shift = shift.unsqueeze(-1).unsqueeze(-1).expand_as(x)
+        assert scale.size()[-1] == x.size()[-1], "Different number of features"
 
         return scale * x + shift
 
@@ -68,9 +62,12 @@ class FiLMTest(unittest.TestCase):
         self.assertTrue(torch.equal(self.film_layer(x, scale, shift), x_out), "FiLM-1D failed")
 
     def test_2d(self):
-        x = torch.rand((self.batch_size, self.num_features, self.num_features))  # Batchsize 8 and 32 Features
+        x = torch.rand((self.batch_size, 5, self.num_features))  # Batchsize 8 and 32 Features
         scale = torch.ones((self.batch_size, self.num_features)) * 2  # Batchsize 8 and 32 Features
         shift = torch.ones((self.batch_size, self.num_features)) * 3  # Batchsize 8 and 32 Features
+        print(x.size())
+        print(scale.size())
+        print(shift.size())
         x_out = x * 2 + 3
 
         self.assertTrue(torch.equal(self.film_layer(x, scale, shift), x_out), "FiLM-2D failed")
