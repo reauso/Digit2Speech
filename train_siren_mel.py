@@ -191,6 +191,15 @@ if __name__ == "__main__":
         "conda": "./environment.yml",
     }
 
+    def ray_mapping(config_entry):
+        if type(config_entry) is ray.tune.search.sample.Categorical:
+            entry = config_entry.sample()
+        else:
+            entry = config_entry
+        return entry
+    config = {key: ray_mapping(value) for key, value in config.items()}
+    train(config)
+
     ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
     # ray.init()
     scheduler = ASHAScheduler(
@@ -218,5 +227,3 @@ if __name__ == "__main__":
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["eval_loss"]))
-
-    # train(config)

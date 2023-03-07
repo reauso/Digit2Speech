@@ -1,7 +1,15 @@
+from enum import Enum
+
 import torch
 import torch.nn as nn
 import numpy as np
 from model.ModulationLayer import FiLM, MappingNetwork
+
+
+class MappingType(Enum):
+    One_Network_One_Dimension_For_All_Layers = 'One_Network_One_Dimension_For_All_Layers'
+    One_Network_Mult_Dimension_For_Each_Layer = 'One_Network_Mult_Dimension_For_Each_Layer'
+    Mult_Networks_One_Dimension_For_Each_Layer = 'Mult_Networks_One_Dimension_For_Each_Layer'
 
 
 class SineLayerWithFilm(nn.Module):
@@ -42,8 +50,12 @@ class SineLayerWithFilm(nn.Module):
 
 class SirenModelWithFiLM(nn.Module):
     def __init__(self, in_features, out_features, hidden_features, hidden_layers,
-                 mod_in_features, mod_features=256, mod_hidden_layers=3, first_omega_0=30, hidden_omega_0=30.):
+                 mod_in_features, mod_features=256, mod_hidden_layers=3, first_omega_0=30, hidden_omega_0=30.,
+                 mapping_type: MappingType = MappingType.Mult_Networks_One_Dimension_For_Each_Layer
+                 ):
         super().__init__()
+        self.hidden_features = hidden_features
+        self.mapping_type = mapping_type
 
         self.sine_layers = []
         self.final_layers = []
@@ -59,24 +71,76 @@ class SirenModelWithFiLM(nn.Module):
             final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0,
                                          np.sqrt(6 / hidden_features) / hidden_omega_0)
         self.final_layers.append(final_linear)
-        #self.final_layers.append(torch.nn.Tanh())
+        # self.final_layers.append(torch.nn.Tanh())
 
         self.sine_layers = nn.Sequential(*self.sine_layers)
         self.final_layers = nn.Sequential(*self.final_layers)
-        self.modulation_network = MappingNetwork(
-            input_size=mod_in_features,
-            output_size=hidden_features,
-            num_dimensions=hidden_layers + 1,
-            num_features=mod_features,
-            hidden_layers=mod_hidden_layers,
-        )
+
+        self.modulation_networks = self._get_modulation(mod_in_features, hidden_features,
+                                                        hidden_layers, mod_features, mod_hidden_layers)
+        self.modulation_dimension_mapping = {
+            MappingType.One_Network_One_Dimension_For_All_Layers: 1,
+            MappingType.One_Network_Mult_Dimension_For_Each_Layer: hidden_layers + 1,
+            MappingType.Mult_Networks_One_Dimension_For_Each_Layer: hidden_layers + 1,
+        }
+
+    def _get_modulation(self, mod_in_features, hidden_features, hidden_layers, mod_features,
+                        mod_hidden_layers):
+        if self.mapping_type is MappingType.One_Network_One_Dimension_For_All_Layers:
+            modulation_network = torch.nn.ModuleList([
+                MappingNetwork(
+                    input_size=mod_in_features,
+                    output_size=hidden_features,
+                    num_dimensions=1,
+                    num_features=mod_features,
+                    hidden_layers=mod_hidden_layers,
+                )])
+        elif self.mapping_type is MappingType.One_Network_Mult_Dimension_For_Each_Layer:
+            modulation_network = torch.nn.ModuleList([
+                MappingNetwork(
+                    input_size=mod_in_features,
+                    output_size=hidden_features,
+                    num_dimensions=hidden_layers + 1,
+                    num_features=mod_features,
+                    hidden_layers=mod_hidden_layers,
+                )])
+        elif self.mapping_type is MappingType.Mult_Networks_One_Dimension_For_Each_Layer:
+            modulation_network = torch.nn.ModuleList([
+                MappingNetwork(
+                    input_size=mod_in_features,
+                    output_size=hidden_features,
+                    num_dimensions=1,
+                    num_features=mod_features,
+                    hidden_layers=mod_hidden_layers,
+                ) for _ in range(hidden_layers + 1)
+            ])
+        else:
+            raise NotImplementedError('MappingType not implemented {}'.format(self.mapping_type))
+
+        return modulation_network
 
     def forward(self, x, modulation_input):
-        scale, shift = self.modulation_network(modulation_input)
+        scale, shift = self.calculate_scale_and_shift(modulation_input)
 
+        mod_dimensions = self.modulation_dimension_mapping[self.mapping_type]
         for i, layer in enumerate(self.sine_layers):
-            x = layer(x, scale[:, i], shift[:, i])
+            mod_index = min(i, mod_dimensions - 1)
+            x = layer(x, scale[mod_index], shift[mod_index])
 
         x = self.final_layers(x)
 
         return torch.sin(x)
+
+    def calculate_scale_and_shift(self, modulation_input):
+        dimension = self.modulation_dimension_mapping[self.mapping_type]
+        mod_batch_size = modulation_input.size()[0]
+        device = modulation_input.device
+
+        scale = torch.zeros((dimension, mod_batch_size, self.hidden_features), device=device)
+        shift = torch.zeros((dimension, mod_batch_size, self.hidden_features), device=device)
+
+        for i, modulation_network in enumerate(self.modulation_networks):
+            current_scale, current_shift = modulation_network(modulation_input)
+            scale[i] = current_scale[0]
+            shift[i] = current_shift[0]
+        return scale, shift
