@@ -18,7 +18,14 @@ def split_train_val(source_path, training_folder, validation_folder, split_facto
 
     file_count_to_split = grouped_by_speaker_lang_digit["trial"].count(
     )*split_factor
-    
+
+    # delete directories if already existing
+    if os.path.isdir(validation_folder):
+        shutil.rmtree(validation_folder)
+    if os.path.isdir(training_folder):
+        shutil.rmtree(training_folder)
+
+    # create directories
     os.makedirs(validation_folder, exist_ok=True)
     os.makedirs(training_folder, exist_ok=True)
 
