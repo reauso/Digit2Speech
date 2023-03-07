@@ -66,7 +66,7 @@ class SirenModelWithFiLM(nn.Module):
         self.modulation_network = MappingNetwork(
             input_size=mod_in_features,
             output_size=hidden_features,
-            num_dimensions=hidden_layers,
+            num_dimensions=hidden_layers + 1,
             num_features=mod_features,
             hidden_layers=mod_hidden_layers,
         )
