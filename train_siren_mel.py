@@ -193,14 +193,14 @@ if __name__ == "__main__":
         "conda": "./environment.yml",
     }
 
-    def ray_mapping(config_entry):
+    '''def ray_mapping(config_entry):
         if type(config_entry) is ray.tune.search.sample.Categorical:
             entry = config_entry.sample()
         else:
             entry = config_entry
         return entry
     config = {key: ray_mapping(value) for key, value in config.items()}
-    train(config)
+    train(config)'''
 
     ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
     # ray.init()
