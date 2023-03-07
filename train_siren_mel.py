@@ -38,11 +38,15 @@ def train(config):
                                            shuffle=False, num_workers=4, drop_last=False)
 
     # create model
-    model = SirenModelWithFiLM(in_features=2,  # x coord and y coord
-                               out_features=1,  # grayscale value of spectrogram at (x,y) coord
-                               hidden_features=config["SIREN_hidden_features"],
-                               hidden_layers=config["SIREN_hidden_layers"],
-                               mod_features=config['num_mfccs'] * 4, )
+    model = SirenModelWithFiLM(
+        in_features=2,  # x coord and y coord
+        out_features=1,  # grayscale value of spectrogram at (x,y) coord
+        hidden_features=config['SIREN_hidden_features'],
+        hidden_layers=config['SIREN_hidden_layers'],
+        mod_in_features=config['num_mfccs'] * 4,
+        mod_features=config['MODULATION_hidden_features'],
+        mod_hidden_layers=config['MODULATION_hidden_layers'],
+    )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 
@@ -105,7 +109,7 @@ def train(config):
 
         # evaluation loop
         for i, data_pair in enumerate(validation_dataset_loader):
-            #print('Train Progress: {}/{}'.format(i, len(train_dataset_loader)))
+            # print('Train Progress: {}/{}'.format(i, len(train_dataset_loader)))
 
             # get batch data
             metadata, _, spectrogram, coordinates = data_pair
@@ -154,7 +158,7 @@ def train(config):
 
 if __name__ == "__main__":
     # ray config
-    num_trials = 40
+    num_trials = 30
     max_num_epochs = 50
     gpus_per_trial = 0.5
 
@@ -171,11 +175,13 @@ if __name__ == "__main__":
         'shuffle_audio_files': True,
 
         # model
-        "SIREN_hidden_features":  tune.choice([128, 256, 384, 512]),
-        "SIREN_hidden_layers":  tune.choice([3, 5, 8]),
+        "SIREN_hidden_features": tune.choice([128, 256, 384, 512]),
+        "SIREN_hidden_layers": tune.choice([3, 5, 8]),
+        "MODULATION_hidden_features": tune.choice([128, 256, 384, 512]),
+        "MODULATION_hidden_layers": tune.choice([3, 5, 8]),
 
         # training
-        "lr":  tune.choice([0.0001, 0.00015, 0.0002]),
+        "lr": tune.choice([0.000075, 0.0001, 0.00015, 0.0002]),
         "epochs": 100,
     }
 

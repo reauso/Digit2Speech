@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from model.ModulationLayer import FiLM, MappingNetwork
-from model.initialization import init_network_parameters
 
 
 class SineLayerWithFilm(nn.Module):
@@ -42,18 +41,18 @@ class SineLayerWithFilm(nn.Module):
 
 
 class SirenModelWithFiLM(nn.Module):
-    def __init__(self, in_features, hidden_features, hidden_layers, out_features,
-                 mod_features, mod_layer=3, first_omega_0=30, hidden_omega_0=30.):
+    def __init__(self, in_features, out_features, hidden_features, hidden_layers,
+                 mod_in_features, mod_features=256, mod_hidden_layers=3, first_omega_0=30, hidden_omega_0=30.):
         super().__init__()
 
-        self.net = []
+        self.sine_layers = []
         self.final_layers = []
-        self.net.append(SineLayerWithFilm(in_features, hidden_features,
-                                          is_first=True, omega_0=first_omega_0))
+        self.sine_layers.append(SineLayerWithFilm(in_features, hidden_features,
+                                                  is_first=True, omega_0=first_omega_0))
 
         for i in range(hidden_layers):
-            self.net.append(SineLayerWithFilm(hidden_features, hidden_features,
-                                              is_first=False, omega_0=hidden_omega_0))
+            self.sine_layers.append(SineLayerWithFilm(hidden_features, hidden_features,
+                                                      is_first=False, omega_0=hidden_omega_0))
 
         final_linear = nn.Linear(hidden_features, out_features)
         with torch.no_grad():
@@ -62,16 +61,21 @@ class SirenModelWithFiLM(nn.Module):
         self.final_layers.append(final_linear)
         #self.final_layers.append(torch.nn.Tanh())
 
-        self.net = nn.Sequential(*self.net)
+        self.sine_layers = nn.Sequential(*self.sine_layers)
         self.final_layers = nn.Sequential(*self.final_layers)
-        self.modulation_network = MappingNetwork(mod_features, 1, hidden_features,
-                                                 mod_layer)
+        self.modulation_network = MappingNetwork(
+            input_size=mod_in_features,
+            output_size=hidden_features,
+            num_dimensions=hidden_layers,
+            num_features=mod_features,
+            hidden_layers=mod_hidden_layers,
+        )
 
     def forward(self, x, modulation_input):
         scale, shift = self.modulation_network(modulation_input)
 
-        for i, layer in enumerate(self.net):
-            x = layer(x, scale[:, 0], shift[:, 0])
+        for i, layer in enumerate(self.sine_layers):
+            x = layer(x, scale[:, i], shift[:, i])
 
         x = self.final_layers(x)
 

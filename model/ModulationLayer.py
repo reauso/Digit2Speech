@@ -5,17 +5,17 @@ import unittest
 
 class MappingNetwork(nn.Module):
 
-    def __init__(self, modulation_input_size, num_dimensions, num_features, modulation_layer=3):
+    def __init__(self, input_size, output_size, num_dimensions, num_features=256, hidden_layers=3):
         super(MappingNetwork, self).__init__()
         self.num_dimensions = num_dimensions
-        self.num_features = num_features
+        self.output_size = output_size
 
-        self.modulation_layers = torch.nn.ModuleList([nn.Linear(modulation_input_size, 256)])
-        for i in range(modulation_layer-1):
-            self.modulation_layers.extend([nn.Linear(256, 256)])
+        self.modulation_layers = torch.nn.ModuleList([nn.Linear(input_size, num_features)])
+        for i in range(hidden_layers - 1):
+            self.modulation_layers.extend([nn.Linear(num_features, num_features)])
 
-        self.lin_scale = nn.Linear(256, self.num_dimensions * self.num_features)
-        self.lin_shift = nn.Linear(256, self.num_dimensions * self.num_features)
+        self.lin_scale = nn.Linear(num_features, self.num_dimensions * self.output_size)
+        self.lin_shift = nn.Linear(num_features, self.num_dimensions * self.output_size)
 
         self.relu = nn.LeakyReLU(0.2,)
 
@@ -24,8 +24,8 @@ class MappingNetwork(nn.Module):
         for layer in self.modulation_layers:
             x = self.relu(layer(x))
 
-        scale = self.lin_scale(x).reshape((x.size()[0], self.num_dimensions, self.num_features))
-        shift = self.lin_shift(x).reshape((x.size()[0], self.num_dimensions, self.num_features))
+        scale = self.lin_scale(x).reshape((x.size()[0], self.num_dimensions, self.output_size))
+        shift = self.lin_shift(x).reshape((x.size()[0], self.num_dimensions, self.output_size))
 
         return scale, shift
 

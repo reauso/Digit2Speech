@@ -19,6 +19,8 @@ if __name__ == "__main__":
     sex = 'male'
     digit = '2'
 
+    # TODO Adjust to modification of dataset and model
+
     # define necessary paths
     source_path = os.path.join(os.getcwd(), os.path.normpath('Dataset/validation'))
     save_path = os.path.join(os.getcwd(), 'GeneratedAudio')
@@ -50,11 +52,15 @@ if __name__ == "__main__":
     # create model instance
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model_config = json.loads(read_textfile(os.path.join(model_path, 'params.json')))
-    model = SirenModelWithFiLM(in_features=1,
-                               out_features=1,
-                               hidden_features=model_config["SIREN_hidden_features"],
-                               num_layers=model_config["SIREN_num_layers"],
-                               mod_features=model_config['num_mfccs'] + 3)
+    model = SirenModelWithFiLM(
+        in_features=1,
+        out_features=1,
+        hidden_features=model_config["SIREN_hidden_features"],
+        hidden_layers=model_config["SIREN_hidden_layers"],
+        mod_in_features=model_config['num_mfccs'] * 4,
+        mod_features=model_config['MODULATION_hidden_features'],
+        mod_hidden_layers=model_config['MODULATION_hidden_layers'],
+    )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 

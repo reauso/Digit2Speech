@@ -30,6 +30,8 @@ def train(config):
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
+    # TODO Adjust to modification of dataset and model
+
     # create datasets and data loaders
     train_dataset = DigitAudioDataset(
         path=config['training_dataset_path'],
@@ -58,7 +60,7 @@ def train(config):
                                out_features=3,
                                hidden_features=config["SIREN_hidden_features"],
                                num_layers=config["SIREN_num_layers"],
-                               mod_features=config['num_mfccs'] + 3)
+                               mod_in_features=config['num_mfccs'] + 3)
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 

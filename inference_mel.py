@@ -43,11 +43,15 @@ if __name__ == "__main__":
     # create model instance
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model_config = json.loads(read_textfile(os.path.join(model_path, 'params.json')))
-    model = SirenModelWithFiLM(in_features=2,  # x coord and y coord
-                               out_features=1,  # grayscale value of spectrogram at (x,y) coord
-                               hidden_features=model_config["SIREN_hidden_features"],
-                               hidden_layers=model_config["SIREN_hidden_layers"],
-                               mod_features=model_config['num_mfccs'] * 4)
+    model = SirenModelWithFiLM(
+        in_features=2,  # x coord and y coord
+        out_features=1,  # grayscale value of spectrogram at (x,y) coord
+        hidden_features=model_config["SIREN_hidden_features"],
+        hidden_layers=model_config["SIREN_hidden_layers"],
+        mod_in_features=model_config['num_mfccs'] * 4,
+        mod_features=model_config['MODULATION_hidden_features'],
+        mod_hidden_layers=model_config['MODULATION_hidden_layers'],
+    )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 
