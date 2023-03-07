@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
 from data_handling.util import map_numpy_values
-from model.SirenModel import SirenModelWithFiLM
+from model.SirenModel import SirenModelWithFiLM, MappingType
 from model.loss import CombinedLoss
 
 
@@ -46,6 +46,7 @@ def train(config):
         mod_in_features=config['num_mfccs'] * 4,
         mod_features=config['MODULATION_hidden_features'],
         mod_hidden_layers=config['MODULATION_hidden_layers'],
+        modulation_type=config['MODULATION_Type'],
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
@@ -177,6 +178,7 @@ if __name__ == "__main__":
         # model
         "SIREN_hidden_features": tune.choice([128, 256, 384, 512]),
         "SIREN_hidden_layers": tune.choice([3, 5, 8]),
+        "MODULATION_Type": tune.choice(list(MappingType)),
         "MODULATION_hidden_features": tune.choice([128, 256, 384, 512]),
         "MODULATION_hidden_layers": tune.choice([3, 5, 8]),
 

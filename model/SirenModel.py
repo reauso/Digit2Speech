@@ -51,11 +51,11 @@ class SineLayerWithFilm(nn.Module):
 class SirenModelWithFiLM(nn.Module):
     def __init__(self, in_features, out_features, hidden_features, hidden_layers,
                  mod_in_features, mod_features=256, mod_hidden_layers=3, first_omega_0=30, hidden_omega_0=30.,
-                 mapping_type: MappingType = MappingType.Mult_Networks_One_Dimension_For_Each_Layer
+                 modulation_type: MappingType = MappingType.Mult_Networks_One_Dimension_For_Each_Layer
                  ):
         super().__init__()
         self.hidden_features = hidden_features
-        self.mapping_type = mapping_type
+        self.mapping_type = modulation_type
 
         self.sine_layers = []
         self.final_layers = []
