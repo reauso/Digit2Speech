@@ -183,7 +183,7 @@ if __name__ == "__main__":
         "MODULATION_hidden_layers": tune.choice([3, 5, 8]),
 
         # training
-        "lr": tune.choice([0.000075, 0.0001, 0.00015, 0.0002]),
+        "lr": tune.choice([0.00005, 0.000075, 0.0001]),
         "epochs": 100,
     }
 
