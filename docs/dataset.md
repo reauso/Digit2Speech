@@ -1,15 +1,14 @@
 [⬅️ Overview](../README.md)
 [⬅️ Metadata](./metadata.md)
+
 ## Data
 
-The data for the training and validation consists of ~10.000 audio files from the heisenberg dataset and ~6.000 newly recorded audio files done by us. In order to have all necessary and consistent data, some preprocessing steps are obligatory. This package contains a script to do the following steps:
+The data used for this project consists of 10,420 audio files from the Heidelberg dataset [[1]](./references.md#heidelberg-dataset) and about 6,000 newly recorded audio files.
 
-- Split the audio files into 2 second chunks, having the spoken digit centered in the chunk,
-- generate mfcc coefficients from the audio files,
-- generate mel spectograms from the audio files,
-- split the data into training and validation data,
-- extract the metadata from the file name.
+The files from the Heidelberg dataset are in lossless FLAC format, recorded at 48 kHz and 16 Bits per sample. The dataset contains 12 speakers each speaking digits 0-9 in English and German. The length of the files vary between 0 and 2 seconds.
 
-For easier access and training and validation purposes, the data is abstracted into a pytorch `torch.utils.data.Dataset`.
+The newly recorded files were recorded in raw WAV at 48 kHz and 24 Bits per sample. 6 Speakers each speaking digits 0-9 in English and German in 2 second snippets.
+
+For easier access as well as training and validation purposes, the data is abstracted into two pytorch `torch.utils.data.Dataset`s. The dataset classes are split into `DigitAudioDatasetForSignal` and `DigitAudioDatasetForSpectrograms`, both defined in [Dataset.py](../data_handling/Dataset.py) and each providing audio signal and spectrogram images respectively. Furthermore, they both expose tensorized and raw metadata.
 
 [➡️ Preprocessing](./preprocessing.md)
