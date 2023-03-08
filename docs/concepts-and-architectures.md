@@ -10,56 +10,6 @@ The architectures are further explained in the [model](./model/README.md) subpag
 
 In this part of the documentation, the considered network architectures are presented and further discussed.
 
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
-s
-
 ## Siren (raw signal)<a name="siren_signal"></a>
 
 The first concept was to use the raw signal as a base for the audio data. The Siren architecture enables to train a neural network on raw signal data (i.e. sample amplitudes at given times) based on the metadata and additionally the position. We were hoping for the neural network to associate the metadata with the position and value of the samples.
