@@ -1,3 +1,6 @@
+[⬅️ Overview](../README.md)
+[⬅️ Preprocessing](./preprocessing.md)
+
 # Concepts and architectures
 
 We evaluated different concepts and architectures to analyze and generate audio data. The following list contains the concepts and architectures we tried.
@@ -17,3 +20,5 @@ The first concept was to use the raw signal as a base for the audio data. The Si
 ## Siren (mel spectrogram)<a name="siren_mel"></a>
 
 ## GAN (mel spectrogram)<a name="gan_mel"></a>
+
+[➡️ Development and usage](./development-and-usage.md)

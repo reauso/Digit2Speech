@@ -1,3 +1,6 @@
+[⬅️ Overview](../README.md)
+[⬅️ Dataset](./dataset.md)
+
 # Preprocessing
 
 In order to prepare all the data for the training, a set of functions merged into a preprocessing script ([preprocessing.py](../preprocessing.py)) is included in this project. The preprocessing is split into 5 phases, with the first one only being relevant for the first execution.
@@ -21,3 +24,5 @@ In order to prepare all the data for the training, a set of functions merged int
    For models that are trained using spectrograms, Mel Spectrograms are generated for each audio. `librosa` provides a function `librosa.feature.melspectrogram` to generate a Mel Spectrogram from a signal. The function returns a 1 channel gray scale image per default, which are saved to disk for training.
 
 5. Pad audio to 2 seconds ([pad.py](../data_handling/preprocessing/pad.py))
+
+[➡️ Concepts and architectures](./concepts-and-architectures.md)

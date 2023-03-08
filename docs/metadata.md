@@ -1,3 +1,5 @@
+[⬅️ Overview](../README.md)
+
 ## Metadata
 
 The generator is expected to generate an audio from the following metadata (i.e. features):
@@ -17,4 +19,8 @@ Given some metadata, the neural network should be able to generate a fitting aud
   <figcaption>Fig. 1: Interface of the digit generator</figcaption>
 </figure>
 
+<br>
+
 A particularity is the selection of the pitch. Since it is difficult to capture a pitch objectively, mfcc coefficients (hereafter referred to as "mfcc's") are used as a substitute. Although mfcc's are a valid input for neural network processing, consumers would not know which mfcc's to provide. Therefore, some reference files containing pre-generated mfcc's are provided. These reference mfcc's can then be used as input for inference.
+
+[➡️ Dataset](./dataset.md)

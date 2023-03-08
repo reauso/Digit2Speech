@@ -1,3 +1,5 @@
+[⬅️ Overview](../README.md)
+[⬅️ Metadata](./metadata.md)
 ## Data
 
 The data for the training and validation consists of ~10.000 audio files from the heisenberg dataset and ~6.000 newly recorded audio files done by us. In order to have all necessary and consistent data, some preprocessing steps are obligatory. This package contains a script to do the following steps:
@@ -9,3 +11,5 @@ The data for the training and validation consists of ~10.000 audio files from th
 - extract the metadata from the file name.
 
 For easier access and training and validation purposes, the data is abstracted into a pytorch `torch.utils.data.Dataset`.
+
+[➡️ Preprocessing](./preprocessing.md)
