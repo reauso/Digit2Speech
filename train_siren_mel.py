@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
 from data_handling.util import map_numpy_values
-from model.SirenModel import SirenModelWithFiLM
+from model.SirenModel import SirenModelWithFiLM, MappingType
 from model.loss import CombinedLoss
 
 
@@ -46,6 +46,7 @@ def train(config):
         mod_in_features=config['num_mfccs'] * 4,
         mod_features=config['MODULATION_hidden_features'],
         mod_hidden_layers=config['MODULATION_hidden_layers'],
+        modulation_type=config['MODULATION_Type'],
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
@@ -177,11 +178,12 @@ if __name__ == "__main__":
         # model
         "SIREN_hidden_features": tune.choice([128, 256, 384, 512]),
         "SIREN_hidden_layers": tune.choice([3, 5, 8]),
+        "MODULATION_Type": tune.choice(list(MappingType)),
         "MODULATION_hidden_features": tune.choice([128, 256, 384, 512]),
         "MODULATION_hidden_layers": tune.choice([3, 5, 8]),
 
         # training
-        "lr": tune.choice([0.000075, 0.0001, 0.00015, 0.0002]),
+        "lr": tune.choice([0.00005, 0.000075, 0.0001]),
         "epochs": 100,
     }
 
@@ -190,6 +192,15 @@ if __name__ == "__main__":
         "excludes": [".git"],
         "conda": "./environment.yml",
     }
+
+    '''def ray_mapping(config_entry):
+        if type(config_entry) is ray.tune.search.sample.Categorical:
+            entry = config_entry.sample()
+        else:
+            entry = config_entry
+        return entry
+    config = {key: ray_mapping(value) for key, value in config.items()}
+    train(config)'''
 
     ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
     # ray.init()
@@ -218,5 +229,3 @@ if __name__ == "__main__":
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["eval_loss"]))
-
-    # train(config)

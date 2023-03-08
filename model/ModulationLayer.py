@@ -24,8 +24,8 @@ class MappingNetwork(nn.Module):
         for layer in self.modulation_layers:
             x = self.relu(layer(x))
 
-        scale = self.lin_scale(x).reshape((x.size()[0], self.num_dimensions, self.output_size))
-        shift = self.lin_shift(x).reshape((x.size()[0], self.num_dimensions, self.output_size))
+        scale = self.lin_scale(x).reshape((self.num_dimensions, x.size()[0], self.output_size))
+        shift = self.lin_shift(x).reshape((self.num_dimensions, x.size()[0], self.output_size))
 
         return scale, shift
 

@@ -60,6 +60,7 @@ if __name__ == "__main__":
         mod_in_features=model_config['num_mfccs'] * 4,
         mod_features=model_config['MODULATION_hidden_features'],
         mod_hidden_layers=model_config['MODULATION_hidden_layers'],
+        modulation_type=model_config['MODULATION_Type'],
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
