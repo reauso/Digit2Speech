@@ -16,7 +16,8 @@ if __name__ == '__main__':
     output_folder = os.path.join(os.getcwd(), "docs")
     output_filename = "{}.gif".format(trial_name)
     output_file = os.path.join(output_folder, output_filename)
-
+    seconds_per_image = .25
+    
     images = []
 
     def process_trial_image(index, image):
@@ -35,4 +36,4 @@ if __name__ == '__main__':
             image = process_trial_image(index, image)
             images.append(image)
 
-    imageio.mimsave(output_file, images, format="GIF", duration=.25)
+    imageio.mimsave(output_file, images, format="GIF", duration=seconds_per_image)
