@@ -5,6 +5,14 @@
 
 In order to prepare all the data for the training, a set of functions merged into a preprocessing script ([preprocessing.py](../preprocessing.py)) is included in this project. The preprocessing is split into 5 phases, with the first one only being relevant for the first execution.
 
+<figure>
+  <img
+  id="figures-audio-preprocessing"
+  src="./figures-preprocessing-pipline.png"
+  alt="">
+  <figcaption>Fig. 2: Preprocessing of audio files for training and validation</figcaption>
+</figure>
+
 1. Split audio of 60 seconds ([split_audio_signals.py](../data_handling/preprocessing/split_audio_signals.py))
 
    In this optional phase, the recorded audio files are analyzed and split into 2 seconds long snippets. This is used for the newly recorded audio files.
