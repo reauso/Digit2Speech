@@ -9,13 +9,11 @@ We evaluated different concepts and architectures to analyze and generate audio 
 - Siren (trained on mel spectrogram, outputs mel spectrogram)
 - GAN (trained on mel spectogram, outputs mel spectrogram)
 
-The architectures are further explained in the [model](./model/README.md) subpage.
-
 In this part of the documentation, the considered network architectures are presented and further discussed.
 
 ## Siren (raw signal)<a name="siren_signal"></a>
 
-The first concept was to use the raw signal as a base for the audio data. The Siren architecture enables to train a neural network on raw signal data (i.e. sample amplitudes at given times) and finally predict a signal for given a time in a signal. Additionally, a mapping layer (FiLm) based on the metadata and additionally the position. We were hoping for the neural network to associate the metadata with the position and value of the samples.
+The first concept was to use the raw signal as a base for the audio data. The Siren architecture [[3]](./references.md#papers-siren) enables to train a neural network on raw signal data (i.e. sample intensity at given times) and finally predict a signal for given a time in a signal. Additionally, a mapping layer (FilM)[[2]](./references.md#papers-film) creates an association between the data and the metadata. This association is then used in the actual Siren alongside the position (time of sample) to generate an intensity, given metadata and temporal positions.
 
 <figure>
   <img
@@ -43,6 +41,14 @@ The second concept was to use the Siren architecture but with images displaying 
   alt="Development of a model training from epoch 0 to 50. It is visible how the quality of the generated image increases from a blurry spectrogram to a more clear one.">
   <figcaption>Fig. 5: Development of an training attempt of a single language, single gender, 2 digit generator in 50 epochs</figcaption>
 </figure>
+
+| model                                 | generated audio                                                                                                                                                 | metadata                                 |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Model trained on 2 speakers, 1 digit | <audio controls><source src="./2-speakers-1-digits-lang-english-sex-female-digit-0-mfcc-0.wav"/></audio> | female, english, digit 0, mfcc 0         |
+| Model trained on 2 speakers, 1 digit | <audio controls><source src="./2-speakers-1-digits-lang-english-sex-female-digit-0-mfcc-1.wav"/></audio> | female, english, digit 0, mfcc 1 |
+| Model trained on 1 speaker, 2 digits | <audio controls><source src="./1-speakers-2-digits-lang-english-sex-female-digit-0-mfcc-0.wav"/></audio> | female, english, digit 1, mfcc 0 |
+
+Table 1: Examples of generated audio using mel spectrograms in siren
 
 ## GAN (mel spectrogram)<a name="gan_mel"></a>
 
