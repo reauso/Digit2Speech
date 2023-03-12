@@ -158,6 +158,9 @@ class DigitAudioDatasetForSignal(DigitAudioDataset):
         random_audio_samples = torch.FloatTensor(random_audio_samples)
         random_audio_sample_indices = torch.FloatTensor(random_audio_sample_indices)
 
+        # normalize
+        random_audio_sample_indices = normalize_tensor(random_audio_sample_indices)
+
         return metadata, raw_metadata, random_audio_samples, random_audio_sample_indices
 
 
@@ -202,10 +205,13 @@ class DigitAudioDatasetForSpectrograms(DigitAudioDataset):
 
 
 if __name__ == '__main__':
-    '''data_path = os.path.abspath('./Dataset/training')
-    dataset = DigitAudioDatasetForSignal(data_path, num_mfcc=20)
-    print(dataset[0])'''
     data_path = os.path.abspath('./Dataset/training')
+    transformation_file = os.path.abspath('./Dataset/transformation.json')
+
+    dataset = DigitAudioDatasetForSignal(data_path, num_mfcc=50, transformation_file=transformation_file)
+    metadata, raw_metadata, random_audio_samples, random_audio_sample_indices = dataset[0]
+
+    '''
     dataset = DigitAudioDatasetForSpectrograms(data_path, num_mfcc=50)
     import time
     start = time.time()
@@ -213,4 +219,4 @@ if __name__ == '__main__':
     end = time.time()
     print('Time needed: {} sec'.format(end-start))
     #print(metadata)
-    #print(spectrogram.size())
+    #print(spectrogram.size())'''

@@ -83,6 +83,7 @@ def train(config):
         train_losses = []
         eval_losses = []
         eval_prediction_img = None
+        train_prediction_img = None
 
         # training loop
         for i, audio_file_data in enumerate(train_dataset_loader):
@@ -97,7 +98,7 @@ def train(config):
             metadata = metadata.to(device, non_blocking=True)
 
             # training with batching
-            num_samples = audio_samples.size()[0]
+            '''num_samples = audio_samples.size()[0]
             batch_size = parse_batch_size(config['batch_size'], num_samples) if isinstance(config['batch_size'], str) else config['batch_size']
             num_batches = int(num_samples / batch_size)
             num_batches = num_batches if num_samples % batch_size == 0 else num_batches + 1
@@ -121,7 +122,25 @@ def train(config):
                 optimizer.step()
 
                 # documentation
-                train_losses.append({'loss': loss.item()})
+                train_losses.append({'loss': loss.item()})'''
+
+            # get prediction
+            prediction = model(audio_sample_indices, metadata)
+
+            # loss calculation
+            loss = criterion(prediction, audio_samples)
+
+            # backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # documentation
+            train_losses.append({'loss': loss.item()})
+
+            # image for tensorboard
+            if i == len(validation_dataset_loader) - 1:
+                train_prediction_img = image_for_tensorboard(prediction, audio_samples)
 
         # validation loop
         for i, audio_file_data in enumerate(validation_dataset_loader):
@@ -142,21 +161,7 @@ def train(config):
 
             # image for tensorboard
             if i == len(validation_dataset_loader) - 1:
-                prediction = prediction.detach().cpu().numpy()
-                audio_samples = audio_samples.detach().cpu().numpy()
-
-                prediction = prediction.reshape(prediction.shape[0])
-                audio_samples = audio_samples.reshape(audio_samples.shape[0])
-
-                pred_img = signal_to_image(prediction)[:, :, :3]
-                gt_img = signal_to_image(audio_samples)[:, :, :3]
-
-                eval_prediction_img = np.concatenate([pred_img, gt_img], axis=1)
-                scale_factor = 500 / eval_prediction_img.shape[1]
-                eval_prediction_img = cv2.resize(eval_prediction_img, (0, 0), fx=scale_factor, fy=scale_factor)
-                eval_prediction_img = eval_prediction_img.transpose(2, 0, 1)
-                eval_prediction_img = eval_prediction_img.reshape(1, 1, *eval_prediction_img.shape)
-
+                eval_prediction_img = image_for_tensorboard(prediction, audio_samples)
 
         # save model after each epoch
         path = os.path.join(session.get_trial_dir(), "checkpoint")
@@ -168,11 +173,31 @@ def train(config):
         eval_losses = {'eval_{}'.format(key): np.mean(np.array([losses[key] for losses in eval_losses]))
                        for key in eval_losses[0].keys()}
         metric_dict = {
+            'train_vid': train_prediction_img,
             'eval_vid': eval_prediction_img,
         }
         metric_dict.update(train_losses)
         metric_dict.update(eval_losses)
         tune.report(**metric_dict)
+
+
+def image_for_tensorboard(prediction, ground_truth):
+    prediction = prediction.detach().cpu().numpy()
+    ground_truth = ground_truth.detach().cpu().numpy()
+
+    prediction = prediction.reshape(prediction.shape[0])
+    ground_truth = ground_truth.reshape(ground_truth.shape[0])
+
+    pred_img = signal_to_image(prediction)[:, :, :3]
+    gt_img = signal_to_image(ground_truth)[:, :, :3]
+
+    eval_prediction_img = np.concatenate([pred_img, gt_img], axis=1)
+    scale_factor = 800 / eval_prediction_img.shape[1]
+    eval_prediction_img = cv2.resize(eval_prediction_img, (0, 0), fx=scale_factor, fy=scale_factor)
+    eval_prediction_img = eval_prediction_img.transpose(2, 0, 1)
+    eval_prediction_img = eval_prediction_img.reshape(1, 1, *eval_prediction_img.shape)
+
+    return eval_prediction_img
 
 
 if __name__ == "__main__":
