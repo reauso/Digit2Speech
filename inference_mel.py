@@ -1,5 +1,8 @@
+import argparse
 import json
 import os
+from pathlib import Path
+
 import cv2
 
 import librosa
@@ -10,32 +13,45 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
-from data_handling.util import read_textfile, files_in_directory, get_metadata_from_file_name, normalize_tensor, \
-    object_to_float_tensor, map_numpy_values
-from model.SirenModel import SirenModelWithFiLM, MappingType
+from data_handling.util import read_textfile, map_numpy_values, latest_experiment_path, best_trial_path
+from model.SirenModel import MappingType, SirenModelWithFiLM
 
 if __name__ == "__main__":
-    # define values
-    sample_rate = 48000
-    seconds = 2
-    use_metadata_from_file = True
-    language = 'english'
-    sex = 'female'
-    digit = '0'
-
-    # define necessary paths
+    # defaults for config
+    checkpoint_dir = os.path.join(os.getcwd(), 'Checkpoints')
     source_path = os.path.join(os.getcwd(), os.path.normpath('Dataset/validation'))
     save_path = os.path.join(os.getcwd(), 'GeneratedAudio')
-    experiment_name = 'train_2023-03-07_22-07-59 MELSIREN Beatrice Digit 0-1'
-    trial_name = 'train_23bd5_00029_29_MODULATION_Type=Mult_Networks_One_Dimension_For_Each_Layer,MODULATION_hidden_features=128,MODULATION_hidden_l_2023-03-08_02-46-57'
-    model_path = os.path.join(os.getcwd(), 'Checkpoints', experiment_name, trial_name)
     feature_mapping_file = os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')
 
+    # config
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sample_rate", type=int, default=48000, help='The sample rate of the audio file.')
+    parser.add_argument("--seconds", type=float, default=2, help='The seconds to synthesize')
+    parser.add_argument("--checkpoint_dir", type=Path, default=Path(checkpoint_dir), help='Dir with all experiments.')
+    parser.add_argument("--source_dir", type=Path, default=Path(source_path), help='Source dir with metadata.')
+    parser.add_argument("--save_dir", type=Path, default=Path(save_path), help='Saving dir for generated Audio.')
+    parser.add_argument("--experiment", type=str, default='latest', help='Name of the experiment of the model or '
+                                                                         'latest for automatic detection.')
+    parser.add_argument("--trial", type=str, default='best', help='Trial name or best for automatic detection')
+    parser.add_argument("--feature_mapping_file", type=Path, default=Path(feature_mapping_file),
+                        help='The feature mapping file.')
+    args = parser.parse_args()
+
+    # automatic detections
+    args.experiment = os.path.basename(
+        latest_experiment_path(args.checkpoint_dir)) if args.experiment == 'latest' else args.experiment
+    experiment_dir = os.path.join(args.checkpoint_dir, args.experiment)
+    args.trial = os.path.basename(best_trial_path(experiment_dir)) if args.trial == 'best' else args.trial
+
+    # define necessary paths
+    model_path = os.path.join(args.checkpoint_dir, args.experiment, args.trial)
+    print('Use Model at location: {}'.format(model_path))
+
     # create save dir
-    os.makedirs(os.path.join(save_path, experiment_name), exist_ok=True)
+    os.makedirs(os.path.join(args.save_dir, args.experiment), exist_ok=True)
 
     # load feature mappings
-    f = open(feature_mapping_file)
+    f = open(args.feature_mapping_file)
     feature_mappings = json.load(f)
     speaker_sex_mapping = feature_mappings['speakers-sex']
     f.close()
@@ -58,9 +74,9 @@ if __name__ == "__main__":
 
     # create dataset
     validation_dataset = DigitAudioDatasetForSpectrograms(
-        path=source_path,
+        path=args.source_dir,
         num_mfcc=model_config['num_mfccs'],
-        feature_mapping_file=feature_mapping_file,
+        feature_mapping_file=args.feature_mapping_file,
     )
     validation_dataset_loader = DataLoader(validation_dataset, batch_size=1, pin_memory=True, prefetch_factor=10,
                                            shuffle=False, num_workers=4, drop_last=False)
@@ -90,8 +106,8 @@ if __name__ == "__main__":
                                                                      raw_metadata['digit'])
             filename_audio = '{}-lang-{}-sex-{}-digit-{}.wav'.format(i, raw_metadata['language'], raw_metadata['sex'],
                                                                      raw_metadata['digit'])
-            filepath_image = os.path.join(save_path, experiment_name, filename_image)
-            filepath_audio = os.path.join(save_path, experiment_name, filename_audio)
+            filepath_image = os.path.join(args.save_dir, args.experiment, filename_image)
+            filepath_audio = os.path.join(args.save_dir, args.experiment, filename_audio)
 
             # get prediction
             spectrogram = model(coordinates, metadata)
@@ -106,5 +122,6 @@ if __name__ == "__main__":
             # generate audio
             spectrogram = map_numpy_values(spectrogram, (-80.0, 0.0), current_range=(-1.0, 1.0))
             spectrogram = librosa.db_to_power(spectrogram)
-            signal = librosa.feature.inverse.mel_to_audio(spectrogram, sr=48000, hop_length=512, length=96000)
-            soundfile.write(filepath_audio, signal, 48000)
+            signal = librosa.feature.inverse.mel_to_audio(spectrogram, sr=args.sample_rate, hop_length=512,
+                                                          length=args.sample_rate * args.seconds)
+            soundfile.write(filepath_audio, signal, args.sample_rate)

@@ -2,6 +2,7 @@ import glob
 import json
 import os.path
 import random
+import sys
 import threading
 from datetime import datetime
 
@@ -183,3 +184,51 @@ def latest_experiment_path(checkpoint_dir):
     latest_experiment_path = date_path_tuples[0][1]
 
     return latest_experiment_path
+
+
+def all_trial_paths(experiment_dir, trial_name_pattern=r'train_.{5}_\d{5}'):
+    trial_file_names = ['checkpoint', 'params.json', 'params.pkl', 'progress.csv', 'result.json']
+
+    trial_paths = files_in_directory(experiment_dir)
+    trial_paths = [path for path in trial_paths if os.path.isdir(path)]
+    trial_paths = [path for path in trial_paths if re.search(trial_name_pattern, path) is not None]
+
+    # validation of files
+    for name in trial_file_names:
+        trial_paths = [path for path in trial_paths if os.path.exists(os.path.join(path, name))]
+
+    return trial_paths
+
+
+def best_trial_path(experiment_dir, metric='eval_loss', lower_is_better=True, minimal_iterations='highest'):
+    trial_paths = all_trial_paths(experiment_dir=experiment_dir)
+    best_path = None
+    best_value = sys.maxsize if lower_is_better else -sys.maxsize
+    all_results = []
+
+    # get all results
+    for path in trial_paths:
+        result = read_textfile(os.path.join(path, 'result.json'), mode='lines')[-2]
+        result = json.loads(result)
+        all_results.append(result)
+
+    # if automatic iteration detection get the highest training_iteration
+    if minimal_iterations == 'highest':
+        minimal_iterations = max([result['training_iteration'] for result in all_results])
+
+    # filter for minimal_iterations
+    path_result_pairs = zip(trial_paths, all_results)
+    path_result_pairs = [pair for pair in path_result_pairs if pair[1]['training_iteration'] >= minimal_iterations]
+
+    # check results of all trial paths
+    for path, result in path_result_pairs:
+        value = result[metric]
+
+        if lower_is_better and best_value > value:
+            best_path = path
+            best_value = value
+        elif not lower_is_better and best_value < value:
+            best_path = path
+            best_value = value
+
+    return best_path
