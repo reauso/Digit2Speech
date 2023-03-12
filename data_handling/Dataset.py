@@ -154,7 +154,11 @@ class DigitAudioDatasetForSignal(DigitAudioDataset):
 
         random_audio_samples = signal[random_audio_sample_indices]
 
-        return metadata, raw_metadata, torch.FloatTensor(random_audio_samples), torch.FloatTensor(random_audio_sample_indices)
+        # to tensors
+        random_audio_samples = torch.FloatTensor(random_audio_samples)
+        random_audio_sample_indices = torch.FloatTensor(random_audio_sample_indices)
+
+        return metadata, raw_metadata, random_audio_samples, random_audio_sample_indices
 
 
 class DigitAudioDatasetForSpectrograms(DigitAudioDataset):

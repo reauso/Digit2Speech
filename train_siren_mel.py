@@ -54,24 +54,17 @@ def train(config):
     # create optimizer
     optimizer = torch.optim.Adam(params=model.parameters(), lr=config['lr'])
 
-    # load from checkpoint if checkpoint set
-    '''if checkpoint_dir:
-        load_file_path = os.path.join(checkpoint_dir, "checkpoint")
-        print("Load from Checkpoint: {}".format(load_file_path))
-        model_state, optimizer_state = torch.load(load_file_path)
-        model.load_state_dict(model_state)
-        optimizer.load_state_dict(optimizer_state)'''
-
     # necessary values and objects for training loop
     criterion = CombinedLoss(device)
 
-    # training loop
+    # epoch loop
     for epoch in range(config["epochs"]):
         train_losses = []
         eval_losses = []
         train_prediction_img = None
         eval_prediction_img = None
 
+        # training loop
         for j, data_pair in enumerate(train_dataset_loader):
             # get batch data
             metadata, _, spectrogram, coordinates = data_pair
@@ -108,10 +101,8 @@ def train(config):
                 train_prediction_img = np.concatenate([pred_img, gt_img], axis=-1)
                 train_prediction_img = map_numpy_values(train_prediction_img, (0, 1), current_range=(-1, 1))
 
-        # evaluation loop
+        # validation loop
         for i, data_pair in enumerate(validation_dataset_loader):
-            # print('Train Progress: {}/{}'.format(i, len(train_dataset_loader)))
-
             # get batch data
             metadata, _, spectrogram, coordinates = data_pair
             spectrogram_shape = spectrogram.size()

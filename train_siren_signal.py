@@ -9,7 +9,7 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 
-from data_handling.Dataset import  DigitAudioDatasetForSignal
+from data_handling.Dataset import DigitAudioDatasetForSignal
 from model.SirenModel import MappingType, SirenModelWithFiLM
 
 
@@ -29,8 +29,6 @@ def train(config):
     torch.multiprocessing.set_start_method('spawn')
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-
-    # TODO Adjust to modification of dataset and model
 
     # create datasets and data loaders
     train_dataset = DigitAudioDatasetForSignal(
@@ -57,8 +55,8 @@ def train(config):
 
     # create model
     model = SirenModelWithFiLM(
-        in_features=2,
-        out_features=3,
+        in_features=1,
+        out_features=1,
         hidden_features=config['SIREN_hidden_features'],
         hidden_layers=config['SIREN_hidden_layers'],
         mod_in_features=config['num_mfccs'] * 4,
@@ -72,34 +70,29 @@ def train(config):
     # create optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
-    # load from checkpoint if checkpoint set
-    '''if checkpoint_dir:
-        load_file_path = os.path.join(checkpoint_dir, "checkpoint")
-        print("Load from Checkpoint: {}".format(load_file_path))
-        model_state, optimizer_state = torch.load(load_file_path)
-        model.load_state_dict(model_state)
-        optimizer.load_state_dict(optimizer_state)'''
-
     # necessary values and objects for training loop
     criterion = torch.nn.MSELoss(reduction='mean')
     #criterion = get_log_cosh_loss
     lambda_criterion = 1.0
 
-    # training loop
+    # epoch loop
     for epoch in range(config["epochs"]):
         train_losses = []
         eval_losses = []
 
+        # training loop
         for j, audio_file_data in enumerate(train_dataset_loader):
             # get batch data
             metadata, _, audio_samples, audio_sample_indices = audio_file_data
-            audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
-            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
+            audio_samples = torch.transpose(audio_samples, 1, 0)
+            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0)
+
+            # tensors to device
+            audio_samples = audio_samples.to(device, non_blocking=True)
+            audio_sample_indices = audio_sample_indices.to(device, non_blocking=True)
             metadata = metadata.to(device, non_blocking=True)
 
-            # print status
-            # print("Audio File {}/{} with {} samples".format(j, len(train_dataset_loader), audio_samples.size()[0]))
-
+            # training with batching
             num_samples = audio_samples.size()[0]
             batch_size = parse_batch_size(config['batch_size'], num_samples) if isinstance(config['batch_size'], str) else config['batch_size']
             num_batches = int(num_samples / batch_size)
@@ -108,59 +101,61 @@ def train(config):
                 start_index = i * batch_size
                 end_index = min((i + 1) * batch_size, num_samples)
 
+                # get batch data
                 audio_sample_batch = audio_samples[start_index: end_index]
                 audio_sample_indices_batch = audio_sample_indices[start_index: end_index]
 
-                # zero gradients
-                optimizer.zero_grad()
-
                 # get prediction
                 prediction = model(audio_sample_indices_batch, metadata)
-                #print('prediction: {}'.format(prediction))
 
                 # loss calculation
                 loss = criterion(prediction, audio_sample_batch) * lambda_criterion
-                #print('loss: {}'.format(loss))
 
                 # backpropagation
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
                 # documentation
-                train_losses.append(loss.item())
+                train_losses.append({'loss': loss.item()})
 
+        # validation loop
         for i, audio_file_data in enumerate(validation_dataset_loader):
             # get batch data
             metadata, _, audio_samples, audio_sample_indices = audio_file_data
-            audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
-            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
-            metadata = metadata.to(device, non_blocking=True)
+            audio_samples = torch.transpose(audio_samples, 1, 0)
+            audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0)
 
-            # print status
-            # print("Audio File {}/{} with {} samples".format(i, len(train_dataset_loader), audio_samples.size()[0]))
+            # tensors to device
+            audio_samples = audio_samples.to(device, non_blocking=True)
+            audio_sample_indices = audio_sample_indices.to(device, non_blocking=True)
+            metadata = metadata.to(device, non_blocking=True)
 
             with torch.no_grad():
                 prediction = model(audio_sample_indices, metadata)
                 loss = criterion(prediction, audio_samples) * lambda_criterion
-                eval_losses.append(loss.item())
+                eval_losses.append({'loss': loss.item()})
 
         # save model after each epoch
         path = os.path.join(session.get_trial_dir(), "checkpoint")
         torch.save((model.state_dict(), optimizer.state_dict()), path)
 
         # metrics
-        metric_dict = {
-            'train_loss': np.mean(np.array(train_losses)),
-            'eval_loss': np.mean(np.array(eval_losses)),
-        }
+        train_losses = {'train_{}'.format(key): np.mean(np.array([losses[key] for losses in train_losses]))
+                        for key in train_losses[0].keys()}
+        eval_losses = {'eval_{}'.format(key): np.mean(np.array([losses[key] for losses in eval_losses]))
+                       for key in eval_losses[0].keys()}
+        metric_dict = {}
+        metric_dict.update(train_losses)
+        metric_dict.update(eval_losses)
         tune.report(**metric_dict)
 
 
 if __name__ == "__main__":
     # ray config
-    num_trials = 1
-    max_num_epochs = 30
-    gpus_per_trial = 0.5
+    num_trials = 40
+    max_num_epochs = 40
+    gpus_per_trial = 1
 
     # config
     config = {
@@ -174,7 +169,7 @@ if __name__ == "__main__":
         'transformation_file': os.path.normpath(os.getcwd() + "/Dataset/transformation.json"),
 
         # data loading
-        'batch_size': 'per_file',  # tune.choice([4096, 6144, 8192]),
+        'batch_size': 'per_file',
         'shuffle_audio_files': True,
 
         # model

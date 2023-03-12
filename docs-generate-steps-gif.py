@@ -2,9 +2,7 @@ import json
 import os
 import numpy as np
 import imageio
-from tqdm import tqdm
 from PIL import Image, ImageDraw
-
 
 
 if __name__ == '__main__':
