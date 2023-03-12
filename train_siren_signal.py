@@ -1,5 +1,6 @@
 import os
 
+import cv2
 import numpy as np
 import ray
 import torch
@@ -8,8 +9,10 @@ from ray.air import session
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 from data_handling.Dataset import DigitAudioDatasetForSignal
+from data_handling.util import signal_to_image
 from model.SirenModel import MappingType, SirenModelWithFiLM
 
 
@@ -79,9 +82,10 @@ def train(config):
     for epoch in range(config["epochs"]):
         train_losses = []
         eval_losses = []
+        eval_prediction_img = None
 
         # training loop
-        for j, audio_file_data in enumerate(train_dataset_loader):
+        for i, audio_file_data in enumerate(train_dataset_loader):
             # get batch data
             metadata, _, audio_samples, audio_sample_indices = audio_file_data
             audio_samples = torch.transpose(audio_samples, 1, 0)
@@ -97,9 +101,9 @@ def train(config):
             batch_size = parse_batch_size(config['batch_size'], num_samples) if isinstance(config['batch_size'], str) else config['batch_size']
             num_batches = int(num_samples / batch_size)
             num_batches = num_batches if num_samples % batch_size == 0 else num_batches + 1
-            for i in range(num_batches):
-                start_index = i * batch_size
-                end_index = min((i + 1) * batch_size, num_samples)
+            for j in range(num_batches):
+                start_index = j * batch_size
+                end_index = min((j + 1) * batch_size, num_samples)
 
                 # get batch data
                 audio_sample_batch = audio_samples[start_index: end_index]
@@ -136,6 +140,24 @@ def train(config):
                 loss = criterion(prediction, audio_samples) * lambda_criterion
                 eval_losses.append({'loss': loss.item()})
 
+            # image for tensorboard
+            if i == len(validation_dataset_loader) - 1:
+                prediction = prediction.detach().cpu().numpy()
+                audio_samples = audio_samples.detach().cpu().numpy()
+
+                prediction = prediction.reshape(prediction.shape[0])
+                audio_samples = audio_samples.reshape(audio_samples.shape[0])
+
+                pred_img = signal_to_image(prediction)[:, :, :3]
+                gt_img = signal_to_image(audio_samples)[:, :, :3]
+
+                eval_prediction_img = np.concatenate([pred_img, gt_img], axis=1)
+                scale_factor = 500 / eval_prediction_img.shape[1]
+                eval_prediction_img = cv2.resize(eval_prediction_img, (0, 0), fx=scale_factor, fy=scale_factor)
+                eval_prediction_img = eval_prediction_img.transpose(2, 0, 1)
+                eval_prediction_img = eval_prediction_img.reshape(1, 1, *eval_prediction_img.shape)
+
+
         # save model after each epoch
         path = os.path.join(session.get_trial_dir(), "checkpoint")
         torch.save((model.state_dict(), optimizer.state_dict()), path)
@@ -145,7 +167,9 @@ def train(config):
                         for key in train_losses[0].keys()}
         eval_losses = {'eval_{}'.format(key): np.mean(np.array([losses[key] for losses in eval_losses]))
                        for key in eval_losses[0].keys()}
-        metric_dict = {}
+        metric_dict = {
+            'eval_vid': eval_prediction_img,
+        }
         metric_dict.update(train_losses)
         metric_dict.update(eval_losses)
         tune.report(**metric_dict)
@@ -190,6 +214,15 @@ if __name__ == "__main__":
         "conda": "./environment.yml",
     }
 
+    '''def ray_mapping(config_entry):
+        if type(config_entry) is ray.tune.search.sample.Categorical:
+            entry = config_entry.sample()
+        else:
+            entry = config_entry
+        return entry
+    config = {key: ray_mapping(value) for key, value in config.items()}
+    train(config)'''
+
     ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
     # ray.init()
     scheduler = ASHAScheduler(
@@ -217,5 +250,3 @@ if __name__ == "__main__":
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["eval_loss"]))
-
-    # train(config)

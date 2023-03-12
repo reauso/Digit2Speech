@@ -1,4 +1,5 @@
 import glob
+import io
 import json
 import os.path
 import random
@@ -10,6 +11,7 @@ import numpy as np
 import soundfile
 import re
 import torch
+from matplotlib import pyplot as plt
 
 
 def files_in_directory(directory_path, file_patterns=None, recursive=False):
@@ -111,6 +113,18 @@ def map_numpy_values(array, desired_range, current_range=None):
     return array
 
 
+def signal_to_image(signal, dpi=100):
+    fig, ax = plt.subplots(figsize=(15, 5))
+    ax.plot(signal)
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format='raw', dpi=dpi)
+    signal_img = np.frombuffer(buffer.getvalue(), dtype=np.uint8)
+    signal_img = signal_img.reshape((int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1))
+    plt.close(fig)
+
+    return signal_img
+
+
 def normalize_tensor(tensor, min_value=None, max_value=None):
     """
     Normalizes a tensor to range [-1;1]
@@ -156,7 +170,8 @@ def print_tensor_stats(tensor):
     mean = torch.mean(tensor)
     std = torch.std(tensor)
     median = torch.median(tensor)
-    print('min: {}, max: {}, mean: {}, std: {}, median: {}'.format(min, max, mean, std, median))
+    size = tensor.size()
+    print('min: {}, max: {}, mean: {}, std: {}, median: {}, size: {}'.format(min, max, mean, std, median, size))
 
 
 def print_numpy_stats(numpy_array):
@@ -165,7 +180,8 @@ def print_numpy_stats(numpy_array):
     mean = np.mean(numpy_array)
     std = np.std(numpy_array)
     median = np.median(numpy_array)
-    print('min: {}, max: {}, mean: {}, std: {}, median: {}'.format(min, max, mean, std, median))
+    shape = numpy_array.shape()
+    print('min: {}, max: {}, mean: {}, std: {}, median: {}, shape: {}'.format(min, max, mean, std, median, shape))
 
 
 def latest_experiment_path(checkpoint_dir):

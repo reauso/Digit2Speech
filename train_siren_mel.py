@@ -65,7 +65,7 @@ def train(config):
         eval_prediction_img = None
 
         # training loop
-        for j, data_pair in enumerate(train_dataset_loader):
+        for i, data_pair in enumerate(train_dataset_loader):
             # get batch data
             metadata, _, spectrogram, coordinates = data_pair
             spectrogram_shape = spectrogram.size()
@@ -94,7 +94,7 @@ def train(config):
             train_losses.append(individual_losses)
 
             # image for tensorboard
-            if j == len(train_dataset_loader) - 1:
+            if i == len(train_dataset_loader) - 1:
                 size = prediction.size()
                 pred_img = prediction.view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
                 gt_img = spectrogram.view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
