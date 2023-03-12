@@ -159,9 +159,9 @@ def train(config):
 
 if __name__ == "__main__":
     # ray config
-    num_trials = 30
-    max_num_epochs = 50
-    gpus_per_trial = 0.5
+    num_trials = 20
+    max_num_epochs = 80
+    gpus_per_trial = 1
 
     # config
     config = {
@@ -176,14 +176,14 @@ if __name__ == "__main__":
         'shuffle_audio_files': True,
 
         # model
-        "SIREN_hidden_features": tune.choice([128, 256, 384, 512]),
-        "SIREN_hidden_layers": tune.choice([3, 5, 8]),
-        "MODULATION_Type": tune.choice(list(MappingType)),
-        "MODULATION_hidden_features": tune.choice([128, 256, 384, 512]),
-        "MODULATION_hidden_layers": tune.choice([3, 5, 8]),
+        "SIREN_hidden_features": 256, #tune.choice([128, 256, 384, 512]),
+        "SIREN_hidden_layers": 5, #tune.choice([3, 5, 8]),
+        "MODULATION_Type": tune.choice([MappingType.Mult_Networks_One_Dimension_For_Each_Layer]),
+        "MODULATION_hidden_features": 128, #tune.choice([128, 256, 384, 512]),
+        "MODULATION_hidden_layers": 5, #tune.choice([3, 5, 8]),
 
         # training
-        "lr": tune.choice([0.00005, 0.000075, 0.0001]),
+        "lr": 5e-05, #tune.choice([0.00005, 0.000075, 0.0001]),
         "epochs": 100,
     }
 
