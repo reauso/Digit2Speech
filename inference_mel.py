@@ -12,7 +12,7 @@ from tqdm import tqdm
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
 from data_handling.util import read_textfile, files_in_directory, get_metadata_from_file_name, normalize_tensor, \
     object_to_float_tensor, map_numpy_values
-from model.SirenModel import SirenModelWithFiLM
+from model.SirenModel import SirenModelWithFiLM, MappingType
 
 if __name__ == "__main__":
     # define values
@@ -26,8 +26,8 @@ if __name__ == "__main__":
     # define necessary paths
     source_path = os.path.join(os.getcwd(), os.path.normpath('Dataset/validation'))
     save_path = os.path.join(os.getcwd(), 'GeneratedAudio')
-    experiment_name = 'train_2023-03-06_05-55-48'
-    trial_name = 'train_29351_00023_23_SIREN_hidden_features=256,SIREN_hidden_layers=3,lr=0.0002_2023-03-06_06-38-23'
+    experiment_name = 'train_2023-03-07_22-07-59 MELSIREN Beatrice Digit 0-1'
+    trial_name = 'train_23bd5_00029_29_MODULATION_Type=Mult_Networks_One_Dimension_For_Each_Layer,MODULATION_hidden_features=128,MODULATION_hidden_l_2023-03-08_02-46-57'
     model_path = os.path.join(os.getcwd(), 'Checkpoints', experiment_name, trial_name)
     feature_mapping_file = os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         mod_in_features=model_config['num_mfccs'] * 4,
         mod_features=model_config['MODULATION_hidden_features'],
         mod_hidden_layers=model_config['MODULATION_hidden_layers'],
-        modulation_type=model_config['MODULATION_Type'],
+        modulation_type=MappingType(model_config['MODULATION_Type']),
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)

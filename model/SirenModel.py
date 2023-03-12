@@ -11,6 +11,9 @@ class MappingType(Enum):
     One_Network_Mult_Dimension_For_Each_Layer = 'One_Network_Mult_Dimension_For_Each_Layer'
     Mult_Networks_One_Dimension_For_Each_Layer = 'Mult_Networks_One_Dimension_For_Each_Layer'
 
+    def __str__(self):
+        return self.value
+
 
 class SineLayerWithFilm(nn.Module):
     # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of omega_0.
