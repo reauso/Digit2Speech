@@ -7,11 +7,15 @@ import sys
 import threading
 from datetime import datetime
 
+import matplotlib
 import numpy as np
 import soundfile
 import re
 import torch
 from matplotlib import pyplot as plt
+
+
+matplotlib.use('Agg')
 
 
 def files_in_directory(directory_path, file_patterns=None, recursive=False):

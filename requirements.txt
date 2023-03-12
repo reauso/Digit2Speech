@@ -10,3 +10,4 @@ tqdm
 pytorch_msssim==0.2.1
 torchvision==0.14.1
 moviepy==1.0.3
+matplotlib
