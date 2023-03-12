@@ -4,13 +4,13 @@ import numpy as np
 import ray
 import torch
 from ray import tune
+from ray.air import session
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
-from ray.air import session
 from torch.utils.data import DataLoader
 
-from data_handling.Dataset import DigitAudioDataset
-from model.SirenModel import SirenModelWithFiLM
+from data_handling.Dataset import DigitAudioDataset, DigitAudioDatasetForSignal
+from model.SirenModel import MappingType, SirenModelWithFiLM
 
 
 def get_log_cosh_loss(prediction, target):
@@ -33,7 +33,7 @@ def train(config):
     # TODO Adjust to modification of dataset and model
 
     # create datasets and data loaders
-    train_dataset = DigitAudioDataset(
+    train_dataset = DigitAudioDatasetForSignal(
         path=config['training_dataset_path'],
         audio_sample_coverage=config['audio_sample_coverage'],
         shuffle_audio_samples=config['shuffle_audio_samples'],
@@ -44,7 +44,7 @@ def train(config):
     train_dataset_loader = DataLoader(train_dataset, batch_size=1, prefetch_factor=10, pin_memory=True,
                                       shuffle=config['shuffle_audio_files'], num_workers=4, drop_last=False)
 
-    validation_dataset = DigitAudioDataset(
+    validation_dataset = DigitAudioDatasetForSignal(
         path=config['validation_dataset_path'],
         audio_sample_coverage=1.0,
         shuffle_audio_samples=False,
@@ -56,11 +56,16 @@ def train(config):
                                            shuffle=False, num_workers=4, drop_last=False)
 
     # create model
-    model = SirenModelWithFiLM(in_features=2,
-                               out_features=3,
-                               hidden_features=config["SIREN_hidden_features"],
-                               num_layers=config["SIREN_num_layers"],
-                               mod_in_features=config['num_mfccs'] + 3)
+    model = SirenModelWithFiLM(
+        in_features=2,
+        out_features=3,
+        hidden_features=config['SIREN_hidden_features'],
+        hidden_layers=config['SIREN_hidden_layers'],
+        mod_in_features=config['num_mfccs'] * 4,
+        mod_features=config['MODULATION_hidden_features'],
+        mod_hidden_layers=config['MODULATION_hidden_layers'],
+        modulation_type=config['MODULATION_Type'],
+    )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 
@@ -87,19 +92,13 @@ def train(config):
 
         for j, audio_file_data in enumerate(train_dataset_loader):
             # get batch data
-            metadata, audio_samples, audio_sample_indices = audio_file_data
+            metadata, _, audio_samples, audio_sample_indices = audio_file_data
             audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
             audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
+            metadata = metadata.to(device, non_blocking=True)
 
             # print status
             # print("Audio File {}/{} with {} samples".format(j, len(train_dataset_loader), audio_samples.size()[0]))
-
-            # convert metadata into one array with floats values
-            modulation_input = torch.cat([
-                metadata['language'],
-                metadata['digit'],
-                metadata['sex'],
-                metadata['mfcc_coefficients']], dim=1).to(device, non_blocking=True)
 
             num_samples = audio_samples.size()[0]
             batch_size = parse_batch_size(config['batch_size'], num_samples) if isinstance(config['batch_size'], str) else config['batch_size']
@@ -116,7 +115,7 @@ def train(config):
                 optimizer.zero_grad()
 
                 # get prediction
-                prediction = model(audio_sample_indices_batch, modulation_input)
+                prediction = model(audio_sample_indices_batch, metadata)
                 #print('prediction: {}'.format(prediction))
 
                 # loss calculation
@@ -132,22 +131,16 @@ def train(config):
 
         for i, audio_file_data in enumerate(validation_dataset_loader):
             # get batch data
-            metadata, audio_samples, audio_sample_indices = audio_file_data
+            metadata, _, audio_samples, audio_sample_indices = audio_file_data
             audio_samples = torch.transpose(audio_samples, 1, 0).to(device, non_blocking=True)
             audio_sample_indices = torch.transpose(audio_sample_indices, 1, 0).to(device, non_blocking=True)
+            metadata = metadata.to(device, non_blocking=True)
 
             # print status
             # print("Audio File {}/{} with {} samples".format(i, len(train_dataset_loader), audio_samples.size()[0]))
 
-            # convert metadata into one array with floats values
-            modulation_input = torch.cat([
-                metadata['language'],
-                metadata['digit'],
-                metadata['sex'],
-                metadata['mfcc_coefficients']], dim=1).to(device, non_blocking=True)
-
             with torch.no_grad():
-                prediction = model(audio_sample_indices, modulation_input)
+                prediction = model(audio_sample_indices, metadata)
                 loss = criterion(prediction, audio_samples) * lambda_criterion
                 eval_losses.append(loss.item())
 
@@ -185,12 +178,14 @@ if __name__ == "__main__":
         'shuffle_audio_files': True,
 
         # model
-        "SIREN_hidden_features": tune.choice([128, 256]),
-        "SIREN_num_layers": tune.choice([3, 5, 8]),
-        "SIREN_mod_features": tune.choice([128, 256, 348]),
-
+        "SIREN_hidden_features": tune.choice([128, 256, 384, 512]),
+        "SIREN_hidden_layers": tune.choice([3, 5, 8]),
+        "MODULATION_Type": tune.choice(list(MappingType)),
+        "MODULATION_hidden_features": tune.choice([128, 256, 384, 512]),
+        "MODULATION_hidden_layers": tune.choice([3, 5, 8]),
+        
         # training
-        "lr": tune.choice([0.001, 0.002, 0.003]),
+        "lr": tune.choice([0.00005, 0.000075, 0.0001]),
         "epochs": 50,
     }
 
