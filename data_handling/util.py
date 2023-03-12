@@ -1,7 +1,9 @@
 import glob
+import json
 import os.path
 import random
 import threading
+from datetime import datetime
 
 import numpy as np
 import soundfile
@@ -23,12 +25,32 @@ def files_in_directory(directory_path, file_patterns=None, recursive=False):
     return files
 
 
-def read_textfile(textfile_path):
-    f = open(textfile_path, 'r')
-    text = f.read()
+def read_textfile(textfile, mode='text', encoding='utf-8'):
+    """
+    Reads a textfile.
+    :param textfile: The textfile path.
+    :param mode: Determines the return type. 'lines' for a list of textfile lines or 'text' for one string containing
+    all file content.
+    :param encoding: The encoding of the textfile.
+    :return: The content of the textfile.
+    """
+    f = open(textfile, 'r', encoding=encoding)
+    if mode == 'lines':
+        text = f.readlines()
+    elif mode == 'text':
+        text = f.read()
+    else:
+        raise NotImplementedError('The given mode {} is not implemented!'.format(mode))
     f.close()
 
     return text
+
+
+def read_jsonfile(path) -> dict:
+    f = open(path, 'r')
+    obj = json.load(f)
+    f.close()
+    return obj
 
 
 def get_audio_file_path(folder, language, speaker, digit, trial):
@@ -57,7 +79,7 @@ def get_metadata_from_file_name(file_path, as_dict=False):
 
 def write_trial_to_file(output_folder, language, speaker, digit, trial, signal, sample_rate):
     soundfile.write(get_audio_file_path(output_folder, language,
-                    speaker, digit, trial), signal, sample_rate)
+                                        speaker, digit, trial), signal, sample_rate)
 
 
 def map_numpy_values(array, desired_range, current_range=None):
@@ -143,3 +165,21 @@ def print_numpy_stats(numpy_array):
     std = np.std(numpy_array)
     median = np.median(numpy_array)
     print('min: {}, max: {}, mean: {}, std: {}, median: {}'.format(min, max, mean, std, median))
+
+
+def latest_experiment_path(checkpoint_dir):
+    checkpoint_files = files_in_directory(checkpoint_dir)
+    checkpoint_files = [file for file in checkpoint_files if os.path.isdir(file)]
+
+    date_pattern = r'(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})'
+    date_matches = [re.search(date_pattern, name) for name in checkpoint_files]
+
+    date_path_tuples = zip(date_matches, checkpoint_files)
+    date_path_tuples = [(date.group(0), path) for date, path in date_path_tuples if date is not None]
+    date_path_tuples = [(datetime.strptime(date, '%Y-%m-%d_%H-%M-%S'), path) for date, path in date_path_tuples]
+
+    date_path_tuples.sort(key=lambda x: (x[0], x[1]), reverse=True)
+
+    latest_experiment_path = date_path_tuples[0][1]
+
+    return latest_experiment_path
