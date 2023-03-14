@@ -184,7 +184,7 @@ def print_numpy_stats(numpy_array):
     mean = np.mean(numpy_array)
     std = np.std(numpy_array)
     median = np.median(numpy_array)
-    shape = numpy_array.shape()
+    shape = numpy_array.shape
     print('min: {}, max: {}, mean: {}, std: {}, median: {}, shape: {}'.format(min, max, mean, std, median, shape))
 
 
