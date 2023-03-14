@@ -1,53 +1,58 @@
+import argparse
 import json
 import os
+from pathlib import Path
 
-import librosa
-import numpy as np
+import cv2
+
 import soundfile
 import torch
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from data_handling.util import read_textfile, files_in_directory, get_metadata_from_file_name, normalize_tensor
-from model.SirenModel import SirenModelWithFiLM
+from data_handling.Dataset import DigitAudioDatasetForSignal, DigitAudioDatasetForSpectrograms
+from data_handling.util import print_numpy_stats, read_textfile, latest_experiment_path, best_trial_path, signal_to_image
+from model.SirenModel import MappingType, SirenModelWithFiLM
 
 if __name__ == "__main__":
-    # define values
-    sample_rate = 48000
-    seconds = 2
-    use_metadata_from_file = True
-    language = 'german'
-    sex = 'male'
-    digit = '2'
-
-    # TODO Adjust to modification of dataset and model
-
-    # define necessary paths
+    # defaults for config
+    checkpoint_dir = os.path.join(os.getcwd(), 'Checkpoints')
     source_path = os.path.join(os.getcwd(), os.path.normpath('Dataset/validation'))
     save_path = os.path.join(os.getcwd(), 'GeneratedAudio')
-    experiment_name = 'train_2023-03-04_17-30-15'
-    trial_name = 'train_d8263_00000_0_2023-03-04_17-34-36'
-    model_path = os.path.join(os.getcwd(), 'Checkpoints', experiment_name, trial_name)
     feature_mapping_file = os.path.normpath(os.getcwd() + '/data_handling/feature_mapping.json')
-    transformation_file = os.path.normpath(os.getcwd() + '/Dataset/transformation.json')
+
+    # config
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sample_rate", type=int, default=48000, help='The sample rate of the audio file.')
+    parser.add_argument("--seconds", type=float, default=2, help='The seconds to synthesize')
+    parser.add_argument("--checkpoint_dir", type=Path, default=Path(checkpoint_dir), help='Dir with all experiments.')
+    parser.add_argument("--source_dir", type=Path, default=Path(source_path), help='Source dir with metadata.')
+    parser.add_argument("--save_dir", type=Path, default=Path(save_path), help='Saving dir for generated Audio.')
+    parser.add_argument("--experiment", type=str, default='latest', help='Name of the experiment of the model or '
+                                                                         'latest for automatic detection.')
+    parser.add_argument("--trial", type=str, default='best', help='Trial name or best for automatic detection')
+    parser.add_argument("--feature_mapping_file", type=Path, default=Path(feature_mapping_file),
+                        help='The feature mapping file.')
+    args = parser.parse_args()
+
+    # automatic detections
+    args.experiment = os.path.basename(
+        latest_experiment_path(args.checkpoint_dir)) if args.experiment == 'latest' else args.experiment
+    experiment_dir = os.path.join(args.checkpoint_dir, args.experiment)
+    args.trial = os.path.basename(best_trial_path(experiment_dir)) if args.trial == 'best' else args.trial
+
+    # define necessary paths
+    model_path = os.path.join(args.checkpoint_dir, args.experiment, args.trial)
+    print('Use Model at location: {}'.format(model_path))
 
     # create save dir
-    os.makedirs(os.path.join(save_path, experiment_name), exist_ok=True)
+    os.makedirs(os.path.join(args.save_dir, args.experiment), exist_ok=True)
 
     # load feature mappings
-    f = open(feature_mapping_file)
+    f = open(args.feature_mapping_file)
     feature_mappings = json.load(f)
     speaker_sex_mapping = feature_mappings['speakers-sex']
     f.close()
-
-    # load transformation
-    if transformation_file is not None:
-        raw_transformation_text = read_textfile(transformation_file)
-        transformation = json.loads(raw_transformation_text)
-        shift = transformation['shift']
-        scale = 1 / transformation['scale']
-    else:
-        shift = 0.0
-        scale = 1.0
 
     # create model instance
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -60,14 +65,19 @@ if __name__ == "__main__":
         mod_in_features=model_config['num_mfccs'] * 4,
         mod_features=model_config['MODULATION_hidden_features'],
         mod_hidden_layers=model_config['MODULATION_hidden_layers'],
-        modulation_type=model_config['MODULATION_Type'],
+        modulation_type=MappingType(model_config['MODULATION_Type']),
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
 
-    # get all mfcc files from source path
-    mfcc_files = files_in_directory(source_path, ['**/*_mfcc_{}.npy'.format(model_config['num_mfccs'])], recursive=True)
-    print('Found {} MFCC Source files'.format(len(mfcc_files)))
+    # create dataset
+    validation_dataset = DigitAudioDatasetForSignal(
+        path=args.source_dir,
+        num_mfcc=model_config['num_mfccs'],
+        feature_mapping_file=args.feature_mapping_file,
+    )
+    validation_dataset_loader = DataLoader(validation_dataset, batch_size=1, pin_memory=True, prefetch_factor=10,
+                                           shuffle=False, num_workers=4, drop_last=False)
 
     # load model state
     load_file_path = os.path.join(model_path, "checkpoint")
@@ -76,72 +86,30 @@ if __name__ == "__main__":
     model.load_state_dict(model_state)
 
     # generate audio
-    sample_indices = torch.arange(start=0.0, end=sample_rate * seconds, step=1, device=device, requires_grad=False)
-    sample_indices = sample_indices[:, None]
-    pipeline = tqdm(mfcc_files, unit='Files', desc='Generate Audio Files')
-    for i, file in enumerate(pipeline):
-        filename = os.path.basename(file)
-        pipeline.postfix = filename
+    pipeline = tqdm(validation_dataset_loader, unit='Files', desc='Generate Audio Files')
+    for i, data_pair in enumerate(pipeline):
+        # get batch data
+        metadata, raw_metadata, _, _ = data_pair
+        sample_indices = torch.arange(start=0.0, end=args.sample_rate * 2, step=1, device=device, requires_grad=False)
+        sample_indices = sample_indices[:, None]
 
-        # load mfcc coefficients
-        mfcc_coefficients = np.load(file)
-        mfcc_coefficients = mfcc_coefficients.reshape(mfcc_coefficients.shape[1])
-        mfcc_coefficients = torch.FloatTensor(mfcc_coefficients)
-
-        # load metadata from file if config is set
-        if use_metadata_from_file:
-            basename = os.path.splitext(filename)[0]
-            language, speaker, digit, _ = get_metadata_from_file_name(basename)
-            sex = speaker_sex_mapping[speaker]
-
-        # define metadata dict
-        metadata = {
-            "language": language,
-            "digit": digit,
-            "sex": sex,
-            "mfcc_coefficients": mfcc_coefficients,
-        }
-
-        # metadata to normalized float tensor
-        num_mfcc = len(mfcc_coefficients)
-        language = object_to_float_tensor(language, num_mfcc)
-        sex = object_to_float_tensor(sex, num_mfcc)
-        digit = object_to_float_tensor(digit, num_mfcc)
-
-        # metadata to tensor
-        modulation_input = torch.cat([
-            metadata['language'],
-            metadata['digit'],
-            metadata['sex'],
-            metadata['mfcc_coefficients']], dim=0).to(device, non_blocking=True)
-        modulation_input = modulation_input[None, :]
+        # tensors to device
+        sample_indices = sample_indices.to(device, non_blocking=True)
+        metadata = metadata.to(device, non_blocking=True)
 
         with torch.no_grad():
-            signal = model(sample_indices, modulation_input)
-            signal = signal.cpu().detach().numpy().reshape(signal.shape[0])
-            signal = (signal * scale) + shift
+            filename_image = '{}-lang-{}-sex-{}-digit-{}.png'.format(i, raw_metadata['language'], raw_metadata['sex'],
+                                                                     raw_metadata['digit'])
+            filename_audio = '{}-lang-{}-sex-{}-digit-{}.wav'.format(i, raw_metadata['language'], raw_metadata['sex'],
+                                                                     raw_metadata['digit'])
+            filepath_image = os.path.join(args.save_dir, args.experiment, filename_image)
+            filepath_audio = os.path.join(args.save_dir, args.experiment, filename_audio)
 
-            audio_file = os.path.join(source_path, 'lang-english_speaker-13_digit-0_trial-12.wav')
-            original, _ = librosa.load(audio_file, sr=librosa.get_samplerate(audio_file), mono=True)
-            print(original)
-            print(signal)
-            print('original max {}, min: {}, mean: {}, std: {}'.format(np.max(original), np.min(original), np.mean(original), np.std(original)))
-            #print('max {}, min: {}, mean: {}, std: {}'.format(np.max(original2), np.min(original2), np.mean(original2), np.std(original2)))
-            print('max {}, min: {}, mean: {}, std: {}'.format(np.max(signal), np.min(signal), np.mean(signal), np.std(signal)))
-
-            filename = '{}-lang-{}-sex-{}-digit-{}.wav'.format(i, language, sex, digit)
-            #soundfile.write(os.path.join(save_path, filename + 'orig.wav'), original, sample_rate)
-            soundfile.write(os.path.join(save_path, experiment_name, filename), signal, sample_rate)
-            exit()
-
-            """
-            audio_samples, audio_sampling_rate = librosa.load(file, sr=librosa.get_samplerate(file), mono=True)
-            img = cv2.imread(spectrogram_file, cv2.IMREAD_GRAYSCALE)
-            img = normalize_numpy(img, (-80.0, 0.0), current_range=(0.0, 255.0))
-            spec = librosa.db_to_power(img)
-            signal = librosa.feature.inverse.mel_to_audio(spec, audio_sampling_rate, hop_length=512, length=96000)
-    
-            file_file = os.path.join(os.path.dirname(file), '{}_file.wav'.format(trial_name))
-            soundfile.write(file_file, signal, audio_sampling_rate)
-            """
-
+            signal = model(sample_indices, metadata)
+            audio = signal.cpu().detach().numpy().reshape(signal.shape[0])
+            image = signal.detach().cpu().numpy().reshape(signal.shape[0])
+            image = image.reshape(image.shape[0])
+            image = signal_to_image(image)[:, :, :3]
+            cv2.imwrite(filepath_image, image)
+            print_numpy_stats(audio)
+            soundfile.write(filepath_audio, audio, args.sample_rate)
