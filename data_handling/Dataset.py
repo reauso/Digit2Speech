@@ -208,7 +208,8 @@ if __name__ == '__main__':
     data_path = os.path.abspath('./Dataset/training')
     transformation_file = os.path.abspath('./Dataset/transformation.json')
 
-    dataset = DigitAudioDatasetForSignal(data_path, num_mfcc=50, transformation_file=transformation_file)
+    dataset = DigitAudioDatasetForSignal(data_path, num_mfcc=50, shuffle_audio_samples=False,
+                                         transformation_file=transformation_file)
     metadata, raw_metadata, random_audio_samples, random_audio_sample_indices = dataset[0]
 
     '''

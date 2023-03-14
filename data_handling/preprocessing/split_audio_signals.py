@@ -8,7 +8,7 @@ from tqdm import tqdm
 from data_handling import util
 
 
-def split_audio(raw_samples_directory, samples_directory):
+def split_audio(raw_samples_directory, samples_directory, threshold=0.04, minimal_trial_sample_size=1000):
     # create output dir if it doesn't exist
     if not os.path.exists(samples_directory):
         os.makedirs(samples_directory)
@@ -16,10 +16,6 @@ def split_audio(raw_samples_directory, samples_directory):
     # get all audio files
     audio_files = util.files_in_directory(raw_samples_directory)
     print('Found {} Audio Files'.format(len(audio_files)))
-
-    # define necessary values
-    threshold = 0.04
-    minimal_trial_sample_size = 1000
 
     for file in tqdm(audio_files):
         # metadata of current file
