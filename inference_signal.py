@@ -92,6 +92,7 @@ if __name__ == "__main__":
         metadata, raw_metadata, _, _ = data_pair
         sample_indices = torch.arange(start=0.0, end=args.sample_rate * 2, step=1, device=device, requires_grad=False)
         sample_indices = sample_indices[:, None]
+        raw_metadata = {key: value[0] for key, value in raw_metadata.items()}
 
         # tensors to device
         sample_indices = sample_indices.to(device, non_blocking=True)
