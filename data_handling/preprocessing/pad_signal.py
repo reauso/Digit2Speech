@@ -5,6 +5,7 @@ import numpy as np
 import soundfile
 from tqdm import tqdm
 
+import util.data_helper
 from data_handling import util
 
 
@@ -25,7 +26,7 @@ def get_padded_audio_file(trial_file,  output_length=96000):
 
 
 def pad_audio_files(samples_directory, output_length=96000):
-    audio_files = util.files_in_directory(
+    audio_files = util.data_helper.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 
     print('Preprocessing pad: Found {} Audio Files'.format(len(audio_files)))

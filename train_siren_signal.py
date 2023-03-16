@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 from data_handling.Dataset import DigitAudioDatasetForSignal
-from data_handling.util import signal_to_image
+from util.array_helper import signal_to_image
 from model.SirenModel import MappingType, SirenModelWithFiLM
 
 

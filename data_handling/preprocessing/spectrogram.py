@@ -3,15 +3,16 @@ import librosa
 import librosa.display
 import cv2
 
+import util.data_helper
 from data_handling import util
 from tqdm import tqdm
 import numpy as np
 
-from data_handling.util import map_numpy_values
+from util.array_helper import map_numpy_values
 
 
 def save_spectrogram_for_trials(samples_directory):
-    audio_files = util.files_in_directory(
+    audio_files = util.data_helper.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 
     print('Found {} Audio Files'.format(len(audio_files)))

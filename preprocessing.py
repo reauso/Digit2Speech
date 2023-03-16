@@ -10,12 +10,16 @@ from data_handling.preprocessing.transform import save_transform_data
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--split_audio", action="store_true")
-    parser.add_argument("--split_train_val", action="store_true")
-    parser.add_argument("--mfcc", action="store_true")
-    parser.add_argument("--spectrogram", action="store_true")
-    parser.add_argument("--transform", action="store_true")
-    parser.add_argument("--pad", action="store_true")
+    parser.add_argument("--split_audio", action="store_true", help='Splits the Audio Captures into several files.')
+    parser.add_argument("--split_train_val", action="store_true", help='Splits a distribution of files into training'
+                                                                       'and validation datasets.')
+    parser.add_argument("--mfcc", action="store_true", help='Creates mfcc coefficients for the Datasets.')
+    parser.add_argument("--num_mfcc", type=int, default=50, help='The number of mfcc coefficients to generate.')
+    parser.add_argument("--spectrogram", action="store_true", help='Creates Spectrogram images for the Datasets.')
+    parser.add_argument("--transform", action="store_true", help='Creates a transformation file for the signal so that'
+                                                                 'the dataset can cover optimal value range.')
+    parser.add_argument("--pad", action="store_true", help='Applies Zero Padding to Audio files which are less than '
+                                                           '2 sec long.')
     args = parser.parse_args()
 
     # define folder paths
@@ -38,8 +42,8 @@ if __name__ == '__main__':
         pad_audio_files(validation_directory)
 
     if args.mfcc:
-        save_mfcc_for_trials(training_directory, n_mfcc=50)
-        save_mfcc_for_trials(validation_directory, n_mfcc=50)
+        save_mfcc_for_trials(training_directory, n_mfcc=args.num_mfcc)
+        save_mfcc_for_trials(validation_directory, n_mfcc=args.num_mfcc)
 
     if args.spectrogram:
         save_spectrogram_for_trials(training_directory)

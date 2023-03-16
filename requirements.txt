@@ -14,3 +14,4 @@ pandas~=1.5.2
 imageio~=2.25.0
 pillow~=9.3.0
 matplotlib~=3.6.3
+parameterized~=0.8.1
