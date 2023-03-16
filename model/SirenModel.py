@@ -62,6 +62,8 @@ class SirenModelWithFiLM(nn.Module):
 
         self.sine_layers = []
         self.final_layers = []
+
+        # sine layers
         self.sine_layers.append(SineLayerWithFilm(in_features, hidden_features,
                                                   is_first=True, omega_0=first_omega_0))
 
@@ -73,12 +75,16 @@ class SirenModelWithFiLM(nn.Module):
         with torch.no_grad():
             final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0,
                                          np.sqrt(6 / hidden_features) / hidden_omega_0)
+
+        # final layers
         self.final_layers.append(final_linear)
         # self.final_layers.append(torch.nn.Tanh())
 
+        # as sequential
         self.sine_layers = nn.Sequential(*self.sine_layers)
         self.final_layers = nn.Sequential(*self.final_layers)
 
+        # modulation network(s)
         self.modulation_networks = self._get_modulation(mod_in_features, hidden_features,
                                                         hidden_layers, mod_features, mod_hidden_layers)
         self.modulation_dimension_mapping = {
