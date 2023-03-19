@@ -288,4 +288,5 @@ dependencies:
       - torchvision==0.14.1
       - pytorch_msssim==0.2.1
       - moviepy==1.0.3
+      - parameterized~=0.8.1
 prefix: C:\Users\reber\anaconda3\envs\Digit2Speech

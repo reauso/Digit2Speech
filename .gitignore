@@ -69,7 +69,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+Docu/_build/
 
 # PyBuilder
 target/
@@ -134,3 +134,4 @@ Checkpoints/
 GeneratedAudio/
 
 temp.py
+/temp/

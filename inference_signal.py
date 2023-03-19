@@ -11,7 +11,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data_handling.Dataset import DigitAudioDatasetForSignal, DigitAudioDatasetForSpectrograms
-from data_handling.util import print_numpy_stats, read_textfile, latest_experiment_path, best_trial_path, signal_to_image
+from util.checkpoint_helper import latest_experiment_path, best_trial_path
+from util.array_helper import signal_to_image, print_numpy_stats
+from util.data_helper import read_textfile
 from model.SirenModel import MappingType, SirenModelWithFiLM
 
 if __name__ == "__main__":
@@ -92,6 +94,7 @@ if __name__ == "__main__":
         metadata, raw_metadata, _, _ = data_pair
         sample_indices = torch.arange(start=0.0, end=args.sample_rate * 2, step=1, device=device, requires_grad=False)
         sample_indices = sample_indices[:, None]
+        raw_metadata = {key: value[0] for key, value in raw_metadata.items()}
 
         # tensors to device
         sample_indices = sample_indices.to(device, non_blocking=True)

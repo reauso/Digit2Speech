@@ -1,4 +1,4 @@
-from data_handling.util import files_in_directory, get_metadata_from_file_name
+from util.data_helper import files_in_directory, get_metadata_from_file_name
 import pandas as pd
 import os
 import shutil

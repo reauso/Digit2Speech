@@ -10,7 +10,7 @@ from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
-from data_handling.util import map_numpy_values
+from util.array_helper import map_numpy_values
 from model.SirenModel import SirenModelWithFiLM, MappingType
 from model.loss import CombinedLoss
 

@@ -13,7 +13,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
-from data_handling.util import read_textfile, map_numpy_values, latest_experiment_path, best_trial_path
+from util.checkpoint_helper import latest_experiment_path, best_trial_path
+from util.array_helper import map_numpy_values
+from util.data_helper import read_textfile
 from model.SirenModel import MappingType, SirenModelWithFiLM
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 import os
 import librosa
 import numpy as np
+
+import util.data_helper
 from data_handling import util
 from tqdm import tqdm
 
@@ -26,7 +28,7 @@ def save_mfcc_for_trials(samples_directory, n_mfcc=50):
 
     n_mfcc: Number of mfcc coefficients to generate
     """
-    audio_files = util.files_in_directory(
+    audio_files = util.data_helper.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 
     print('Found {} Audio Files'.format(len(audio_files)))

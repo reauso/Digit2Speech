@@ -6,8 +6,8 @@ import cv2
 import numpy as np
 import torch
 
-from data_handling.util import files_in_directory, get_metadata_from_file_name, normalize_tensor, read_textfile, \
-    object_to_float_tensor, print_tensor_stats, map_numpy_values
+from util.array_helper import map_numpy_values, normalize_tensor, object_to_float_tensor, print_tensor_stats
+from util.data_helper import files_in_directory, read_textfile, get_metadata_from_file_name
 
 
 class DigitAudioDataset(torch.utils.data.Dataset):
@@ -208,7 +208,8 @@ if __name__ == '__main__':
     data_path = os.path.abspath('./Dataset/training')
     transformation_file = os.path.abspath('./Dataset/transformation.json')
 
-    dataset = DigitAudioDatasetForSignal(data_path, num_mfcc=50, transformation_file=transformation_file)
+    dataset = DigitAudioDatasetForSignal(data_path, num_mfcc=50, shuffle_audio_samples=False,
+                                         transformation_file=transformation_file)
     metadata, raw_metadata, random_audio_samples, random_audio_sample_indices = dataset[0]
 
     '''

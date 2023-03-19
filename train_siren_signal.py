@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 from data_handling.Dataset import DigitAudioDatasetForSignal
-from data_handling.util import signal_to_image
+from util.array_helper import signal_to_image
 from model.SirenModel import MappingType, SirenModelWithFiLM
 
 
@@ -96,33 +96,6 @@ def train(config):
             audio_samples = audio_samples.to(device, non_blocking=True)
             audio_sample_indices = audio_sample_indices.to(device, non_blocking=True)
             metadata = metadata.to(device, non_blocking=True)
-
-            # training with batching
-            '''num_samples = audio_samples.size()[0]
-            batch_size = parse_batch_size(config['batch_size'], num_samples) if isinstance(config['batch_size'], str) else config['batch_size']
-            num_batches = int(num_samples / batch_size)
-            num_batches = num_batches if num_samples % batch_size == 0 else num_batches + 1
-            for j in range(num_batches):
-                start_index = j * batch_size
-                end_index = min((j + 1) * batch_size, num_samples)
-
-                # get batch data
-                audio_sample_batch = audio_samples[start_index: end_index]
-                audio_sample_indices_batch = audio_sample_indices[start_index: end_index]
-
-                # get prediction
-                prediction = model(audio_sample_indices_batch, metadata)
-
-                # loss calculation
-                loss = criterion(prediction, audio_sample_batch) * lambda_criterion
-
-                # backpropagation
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                # documentation
-                train_losses.append({'loss': loss.item()})'''
 
             # get prediction
             prediction = model(audio_sample_indices, metadata)
@@ -218,7 +191,6 @@ if __name__ == "__main__":
         'transformation_file': os.path.normpath(os.getcwd() + "/Dataset/transformation.json"),
 
         # data loading
-        'batch_size': 'per_file',
         'shuffle_audio_files': True,
 
         # model

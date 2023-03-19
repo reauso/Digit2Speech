@@ -6,11 +6,11 @@ The documentation is structured into subpages further explaining the correspondi
 
 ## Table of Contents
 
-1. [Metadata](./docs/metadata.md)
-2. [Preprocessing](./docs/preprocessing.md)
-3. [Dataset](./docs/dataset.md)
-4. [Concepts and Architectures](./docs/concepts-and-architectures.md)
-   - [Siren (raw signal)](./docs/concepts-and-architectures.md#siren_signal)
-   - [Siren (mel spectrogram)](./docs/concepts-and-architectures.md#siren_mel)
-5. [Development and usage](./docs/development-and-usage.md)
-6. [References](./docs/references.md)
+1. [Metadata](Docu/metadata.md)
+2. [Preprocessing](Docu/preprocessing.md)
+3. [Dataset](Docu/dataset.md)
+4. [Concepts and Architectures](Docu/concepts-and-architectures.md)
+   - [Siren (raw signal)](Docu/concepts-and-architectures.md#siren_signal)
+   - [Siren (mel spectrogram)](Docu/concepts-and-architectures.md#siren_mel)
+5. [Development and usage](Docu/development-and-usage.md)
+6. [References](Docu/references.md)

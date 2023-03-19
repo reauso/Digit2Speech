@@ -5,7 +5,7 @@ import librosa
 import numpy as np
 from tqdm import tqdm
 
-from data_handling.util import files_in_directory
+from util.data_helper import files_in_directory
 
 
 def save_transform_data(transform_path, training_directory=None, validation_directory=None):
