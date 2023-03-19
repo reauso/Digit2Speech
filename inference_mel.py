@@ -30,9 +30,8 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=Path, default=Path(checkpoint_dir), help='Dir with all experiments.')
     parser.add_argument("--source_dir", type=Path, default=Path(source_path), help='Source dir with metadata.')
     parser.add_argument("--save_dir", type=Path, default=Path(save_path), help='Saving dir for generated Audio.')
-    parser.add_argument("--experiment", type=str, default='latest', help='Name of the experiment of the model or '
-                                                                         'latest for automatic detection.')
-    parser.add_argument("--trial", type=str, default='best', help='Trial name or best for automatic detection')
+    parser.add_argument("--experiment", type=str, default='latest', help='Name of the experiment of the model or "latest" for automatic detection.')
+    parser.add_argument("--trial", type=str, default='best', help='Trial name or "best" for automatic detection')
     parser.add_argument("--feature_mapping_file", type=Path, default=Path(feature_mapping_file),
                         help='The feature mapping file.')
     args = parser.parse_args()

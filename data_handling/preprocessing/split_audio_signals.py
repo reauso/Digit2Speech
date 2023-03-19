@@ -9,6 +9,12 @@ from data_handling import util
 
 
 def split_audio(raw_samples_directory, samples_directory):
+    """Attempts to detect relevant signals in an audio files and writes these in separate files.
+    
+    raw_samples_directory: Directory in which raw audio files are in
+    
+    samples_directory: Directory to save files with relevant signals to
+    """
     # create output dir if it doesn't exist
     if not os.path.exists(samples_directory):
         os.makedirs(samples_directory)

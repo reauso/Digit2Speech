@@ -12,6 +12,5 @@ The documentation is structured into subpages further explaining the correspondi
 4. [Concepts and Architectures](./docs/concepts-and-architectures.md)
    - [Siren (raw signal)](./docs/concepts-and-architectures.md#siren_signal)
    - [Siren (mel spectrogram)](./docs/concepts-and-architectures.md#siren_mel)
-   - [GAN (mel spectrogram)](./docs/concepts-and-architectures.md#gan_mel)
 5. [Development and usage](./docs/development-and-usage.md)
 6. [References](./docs/references.md)

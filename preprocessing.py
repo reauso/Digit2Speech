@@ -10,13 +10,24 @@ from data_handling.preprocessing.transform import save_transform_data
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--split_audio", action="store_true")
-    parser.add_argument("--split_train_val", action="store_true")
-    parser.add_argument("--mfcc", action="store_true")
-    parser.add_argument("--spectrogram", action="store_true")
+    parser.description = "Script to perform preprocessing steps on data. Expects data to be in `Dataset/samples` and outputs into `Dataset/training` and `Dataset/validation`"
+    
+    parser.add_argument("--split_audio", help="Controls if audio files should be analyzed for relevant signal. DO NOT USE IF THE VALID SAMPLES ARE USED.",
+                        action="store_true")
+    parser.add_argument("--split_train_val", help="Controls if all files should be split into training and validation.",
+                        action="store_true")
+    parser.add_argument("--mfcc", help="Controls if MFCC coefficients should be generated",
+                        action="store_true")
+    parser.add_argument("--spectrogram", help="Controls if mel spectrograms should be generated",
+                        action="store_true")
     parser.add_argument("--transform", action="store_true")
-    parser.add_argument("--pad", action="store_true")
+    parser.add_argument("--pad", help="Controls if audio files should be padded to 2 seconds",
+                        action="store_true")
     args = parser.parse_args()
+    
+    if not any(args.__dict__.values()):
+        parser.print_help()
+        exit()
 
     # define folder paths
     dataset_folder = os.path.join(os.getcwd(), "Dataset")

@@ -11,6 +11,10 @@ from data_handling.util import map_numpy_values
 
 
 def save_spectrogram_for_trials(samples_directory):
+    """Generates spectrograms for files in samples_directory
+    
+    samples_directory: Directory in which audio files are in
+    """
     audio_files = util.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 

@@ -20,6 +20,12 @@ def calculate_mfcc_for_trial(trial_file,  n_mfcc=50):
 
 
 def save_mfcc_for_trials(samples_directory, n_mfcc=50):
+    """Generates mfcc n_mfcc mfcc coefficients for audio files in samples_directory
+    
+    samples_directory: Directory in which audio files are in
+
+    n_mfcc: Number of mfcc coefficients to generate
+    """
     audio_files = util.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 
