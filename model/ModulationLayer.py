@@ -2,24 +2,37 @@ import torch
 import torch.nn as nn
 import unittest
 
+from model.PositionalEncoding import HarmonicEmbedding
+
 
 class MappingNetwork(nn.Module):
 
-    def __init__(self, input_size, output_size, num_dimensions, num_features=256, hidden_layers=3):
+    def __init__(self, input_size, output_size, num_dimensions, num_features=256, hidden_layers=3,
+                 use_harmonic_embedding=True, num_harmonic_functions=4):
         super(MappingNetwork, self).__init__()
         self.num_dimensions = num_dimensions
         self.output_size = output_size
+        self.use_harmonic_embedding = use_harmonic_embedding
 
+        # harmonic embedding
+        self.harmonic_embedding = HarmonicEmbedding(n_harmonic_functions=num_harmonic_functions)
+
+        # modulation layers
+        input_size = input_size * num_harmonic_functions * 2 if self.use_harmonic_embedding else input_size
         self.modulation_layers = torch.nn.ModuleList([nn.Linear(input_size, num_features)])
         for i in range(hidden_layers - 1):
             self.modulation_layers.extend([nn.Linear(num_features, num_features)])
 
+        # final scale and shift layers
         self.lin_scale = nn.Linear(num_features, self.num_dimensions * self.output_size)
         self.lin_shift = nn.Linear(num_features, self.num_dimensions * self.output_size)
 
+        # activation function
         self.relu = nn.LeakyReLU(0.2,)
 
     def forward(self, x):
+        if self.use_harmonic_embedding:
+            x = self.harmonic_embedding(x)
 
         for layer in self.modulation_layers:
             x = self.relu(layer(x))
