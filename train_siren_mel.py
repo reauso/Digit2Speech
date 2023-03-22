@@ -47,6 +47,10 @@ def train(config):
         mod_features=config['MODULATION_hidden_features'],
         mod_hidden_layers=config['MODULATION_hidden_layers'],
         modulation_type=config['MODULATION_Type'],
+        use_harmonic_embedding=config['SIREN_use_harmonic_embedding'],
+        num_harmonic_functions=config['SIREN_num_harmonic_functions'],
+        use_mod_harmonic_embedding=config['MODULATION_use_harmonic_embedding'],
+        num_mod_harmonic_functions=config['MODULATION_num_harmonic_functions'],
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
@@ -169,9 +173,13 @@ if __name__ == "__main__":
         # model
         "SIREN_hidden_features": 256, #tune.choice([128, 256, 384, 512]),
         "SIREN_hidden_layers": 5, #tune.choice([3, 5, 8]),
+        "SIREN_use_harmonic_embedding": True,
+        "SIREN_num_harmonic_functions": tune.choice([30, 50, 80, 100]),
         "MODULATION_Type": tune.choice([MappingType.Mult_Networks_One_Dimension_For_Each_Layer]),
         "MODULATION_hidden_features": 128, #tune.choice([128, 256, 384, 512]),
         "MODULATION_hidden_layers": 5, #tune.choice([3, 5, 8]),
+        "MODULATION_use_harmonic_embedding": tune.choice([True, False]),
+        "MODULATION_num_harmonic_functions": tune.choice([2, 4, 6]),
 
         # training
         "lr": 5e-05, #tune.choice([0.00005, 0.000075, 0.0001]),

@@ -9,7 +9,6 @@ from ray.air import session
 from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
 
 from data_handling.Dataset import DigitAudioDatasetForSignal
 from util.array_helper import signal_to_image
@@ -66,6 +65,10 @@ def train(config):
         mod_features=config['MODULATION_hidden_features'],
         mod_hidden_layers=config['MODULATION_hidden_layers'],
         modulation_type=config['MODULATION_Type'],
+        use_harmonic_embedding=config['SIREN_use_harmonic_embedding'],
+        num_harmonic_functions=config['SIREN_num_harmonic_functions'],
+        use_mod_harmonic_embedding=config['MODULATION_use_harmonic_embedding'],
+        num_mod_harmonic_functions=config['MODULATION_num_harmonic_functions'],
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
@@ -75,7 +78,7 @@ def train(config):
 
     # necessary values and objects for training loop
     criterion = torch.nn.MSELoss(reduction='mean')
-    #criterion = get_log_cosh_loss
+    # criterion = get_log_cosh_loss
     lambda_criterion = 1.0
 
     # epoch loop
@@ -175,7 +178,7 @@ def image_for_tensorboard(prediction, ground_truth):
 
 if __name__ == "__main__":
     # ray config
-    num_trials = 40
+    num_trials = 80
     max_num_epochs = 40
     gpus_per_trial = 1
 
@@ -186,7 +189,7 @@ if __name__ == "__main__":
         "validation_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/validation")),
         "audio_sample_coverage": 1.0,  # tune.choice([0.3, 0.6, 0.9]),
         "shuffle_audio_samples": False,  # tune.choice([True, False]),
-        "num_mfccs": 50,  # tune.choice([20, 50, 128]),
+        "num_mfccs": 20,  # tune.choice([20, 50, 128]),
         "feature_mapping_file": os.path.normpath(os.getcwd() + "/data_handling/feature_mapping.json"),
         'transformation_file': os.path.normpath(os.getcwd() + "/Dataset/transformation.json"),
 
@@ -196,10 +199,14 @@ if __name__ == "__main__":
         # model
         "SIREN_hidden_features": tune.choice([128, 256, 384, 512]),
         "SIREN_hidden_layers": tune.choice([3, 5, 8]),
+        "SIREN_use_harmonic_embedding": True,
+        "SIREN_num_harmonic_functions": tune.choice([30, 50, 80, 100]),
         "MODULATION_Type": tune.choice(list(MappingType)),
         "MODULATION_hidden_features": tune.choice([128, 256, 384, 512]),
         "MODULATION_hidden_layers": tune.choice([3, 5, 8]),
-        
+        "MODULATION_use_harmonic_embedding": tune.choice([True, False]),
+        "MODULATION_num_harmonic_functions": tune.choice([2, 4, 6]),
+
         # training
         "lr": tune.choice([0.00005, 0.000075, 0.0001]),
         "epochs": 50,
@@ -226,8 +233,8 @@ if __name__ == "__main__":
         metric="eval_loss",
         mode="min",
         max_t=max_num_epochs,
-        grace_period=5,
-        reduction_factor=2)
+        grace_period=8,
+        reduction_factor=1.5)
     reporter = CLIReporter(
         metric_columns=["eval_loss", "training_iteration"])
     result = tune.run(
