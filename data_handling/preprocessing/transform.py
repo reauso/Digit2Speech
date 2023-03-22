@@ -1,5 +1,4 @@
 import json
-import sys
 
 import librosa
 import numpy as np

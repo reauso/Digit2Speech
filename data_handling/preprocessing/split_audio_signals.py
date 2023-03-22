@@ -6,7 +6,6 @@ from scipy.signal import argrelmin
 from tqdm import tqdm
 
 import util.data_helper
-from data_handling import util
 
 
 def split_audio(raw_samples_directory, samples_directory, threshold=0.04, minimal_trial_sample_size=1000):
