@@ -66,9 +66,9 @@ class SirenModelWithFiLM(nn.Module):
             hidden_omega_0=30.,
             modulation_type: MappingType = MappingType.Mult_Networks_One_Dimension_For_Each_Layer,
             use_harmonic_embedding=True,
-            num_harmonic_embeddings=30,
+            num_harmonic_functions=30,
             use_mod_harmonic_embedding=True,
-            num_mod_harmonic_embedding=4,
+            num_mod_harmonic_functions=4,
     ):
         super().__init__()
         self.hidden_features = hidden_features
@@ -79,10 +79,10 @@ class SirenModelWithFiLM(nn.Module):
         self.final_layers = []
 
         # harmonic embedding
-        self.harmonic_embedding = HarmonicEmbedding(n_harmonic_functions=num_harmonic_embeddings)
+        self.harmonic_embedding = HarmonicEmbedding(n_harmonic_functions=num_harmonic_functions)
 
         # sine layers
-        in_features = in_features * num_harmonic_embeddings * 2 if self.use_harmonic_embedding else in_features
+        in_features = in_features * num_harmonic_functions * 2 if self.use_harmonic_embedding else in_features
         self.sine_layers.append(SineLayerWithFilm(in_features, hidden_features,
                                                   is_first=True, omega_0=first_omega_0))
 
@@ -105,7 +105,7 @@ class SirenModelWithFiLM(nn.Module):
         # modulation network(s)
         self.modulation_networks = self._get_modulation(mod_in_features, hidden_features,
                                                         hidden_layers, mod_features, mod_hidden_layers,
-                                                        use_mod_harmonic_embedding, num_mod_harmonic_embedding)
+                                                        use_mod_harmonic_embedding, num_mod_harmonic_functions)
         self.modulation_dimension_mapping = {
             MappingType.One_Network_One_Dimension_For_All_Layers: 1,
             MappingType.One_Network_Mult_Dimension_For_Each_Layer: hidden_layers + 1,
