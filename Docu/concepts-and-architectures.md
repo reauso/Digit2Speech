@@ -50,6 +50,4 @@ The second concept was to use the Siren architecture but with images displaying 
 
 Table 1: Examples of generated audio using mel spectrograms in siren
 
-## GAN (mel spectrogram)<a name="gan_mel"></a>
-
 [➡️ Development and usage](./development-and-usage.md)

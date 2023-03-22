@@ -220,8 +220,8 @@ if __name__ == "__main__":
     config = {key: ray_mapping(value) for key, value in config.items()}
     train(config)'''
 
-    ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
-    # ray.init()
+    # ray.init(address='auto', runtime_env=env, _node_ip_address="192.168.178.72")
+    ray.init()
     scheduler = ASHAScheduler(
         metric="eval_loss",
         mode="min",

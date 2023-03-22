@@ -22,6 +22,12 @@ def get_padded_audio_file(trial_file,  output_length=96000):
 
 
 def pad_audio_files(samples_directory, output_length=96000):
+    """Pads audio files in samples_directory to output_length.
+    
+    samples_directory: Directory in which files are in
+
+    output_length: Length of signal to pad to
+    """
     audio_files = util.data_helper.files_in_directory(
         samples_directory, file_patterns=["**/*.wav", "**/*.flac"], recursive=True)
 

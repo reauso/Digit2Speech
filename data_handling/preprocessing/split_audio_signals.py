@@ -9,6 +9,17 @@ import util.data_helper
 
 
 def split_audio(raw_samples_directory, samples_directory, threshold=0.04, minimal_trial_sample_size=1000):
+    """Attempts to detect relevant signals in an audio files and writes these in separate files.
+    
+    raw_samples_directory: Directory in which raw audio files are in
+    
+    samples_directory: Directory to save files with relevant signals to
+
+    threshold: Minimum signal intensity to consider relevant
+
+    minimal_trial_sample_size: Minimum size that a relevant signal should have
+    """
+
     # create output dir if it doesn't exist
     if not os.path.exists(samples_directory):
         os.makedirs(samples_directory)

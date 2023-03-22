@@ -6,6 +6,17 @@ from tqdm import tqdm
 
 
 def split_train_val(source_path, training_folder, validation_folder, split_factor=0.1):
+    """Splits the source audio files into training and validation files.
+    Splits each speaker, language, digit group according to their trial count.
+    
+    source_path: Path where source audio files are located.
+
+    training_folder: Directory to move put training files into.
+
+    validation_folder: Directory to move put validation files into.
+    
+    split_factor: Percentage of how many trials should be used. Defaults to 0.1 (10%)
+    """
     files = files_in_directory(
         source_path, ['**/*.wav', "**/*.flac"], recursive=True)
 

@@ -10,6 +10,7 @@ from data_handling.preprocessing.transform import save_transform_data
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.description = "Script to perform preprocessing steps on data. Expects data to be in `Dataset/samples` and outputs into `Dataset/training` and `Dataset/validation`"
     parser.add_argument("--split_audio", action="store_true", help='Splits the Audio Captures into several files.')
     parser.add_argument("--split_train_val", action="store_true", help='Splits a distribution of files into training'
                                                                        'and validation datasets.')
@@ -21,6 +22,10 @@ if __name__ == '__main__':
     parser.add_argument("--pad", action="store_true", help='Applies Zero Padding to Audio files which are less than '
                                                            '2 sec long.')
     args = parser.parse_args()
+    
+    if not any(args.__dict__.values()):
+        parser.print_help()
+        exit()
 
     # define folder paths
     dataset_folder = os.path.join(os.getcwd(), "Dataset")
