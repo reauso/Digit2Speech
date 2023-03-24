@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import math
 import os
 from enum import Enum
+from typing import List
 
 import numpy as np
 
@@ -10,7 +13,7 @@ from util.data_helper import files_in_directory, read_textfile, read_jsonfile, w
 
 
 class RayTuneAnalysis:
-    def __init__(self, checkpoint_directory, experiment_names='latest_only',
+    def __init__(self, checkpoint_directory, experiment_names: str | List[str] = 'latest_only',
                  excluded_fields=None):
         # set parameters
         self._checkpoint_directory = checkpoint_directory
@@ -271,7 +274,7 @@ class RayTuneAnalysisTableView:
             values_dict.update({key: '{:.5f}'.format(np.mean(np.array(value))) for key, value in result.items()})
 
             for key in self._column_key_order:
-                self._append_field(key, values_dict[key], self._TableType.config_analysis)
+                self._append_field(key, values_dict[key], self._TableType.config_analysis, center=False)
 
             self._config_analysis_table += '|\n'
 
@@ -343,13 +346,16 @@ class RayTuneAnalysisTableView:
 if __name__ == "__main__":
     # config
     checkpoint_dir = os.path.join(os.getcwd(), 'Checkpoints')
+    # experiment_names = 'latest_only'
+    experiment_names = ['train_2023-03-23_02-03-43 MELSIREN Beatrice Digit 0 wPE']
     default_excluded_fields = ['eval_vid', 'train_vid', 'time_this_iter_s', 'done', 'timesteps_total',
                                'episodes_total', 'trial_id', 'experiment_id', 'date', 'timestamp', 'pid', 'hostname',
                                'node_ip', 'config', 'time_since_restore', 'timesteps_since_restore',
                                'iterations_since_restore', 'warmup_time', 'transformation_file',
                                'training_dataset_path', 'validation_dataset_path', 'feature_mapping_file']
 
-    analysis = RayTuneAnalysis(checkpoint_dir, excluded_fields=default_excluded_fields)
+    analysis = RayTuneAnalysis(checkpoint_dir, experiment_names=experiment_names,
+                               excluded_fields=default_excluded_fields)
     table_view = RayTuneAnalysisTableView(analysis)
     print(table_view.statistics_table)
     print(table_view.config_analysis_table)

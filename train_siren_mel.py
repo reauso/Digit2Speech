@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import ray
@@ -10,9 +12,12 @@ from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
+from ray_result_analyzer import RayTuneAnalysis, RayTuneAnalysisTableView
 from util.array_helper import map_numpy_values
 from model.SirenModel import SirenModelWithFiLM, MappingType
 from model.loss import CombinedLoss
+from util.checkpoint_helper import nearest_experiment_path, best_trial_path
+from util.data_helper import write_textfile
 
 
 def train(config):
@@ -155,7 +160,7 @@ def train(config):
 if __name__ == "__main__":
     # ray config
     num_trials = 20
-    max_num_epochs = 80
+    max_num_epochs = 100
     gpus_per_trial = 1
 
     # config
@@ -163,7 +168,7 @@ if __name__ == "__main__":
         # data
         "training_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/training")),
         "validation_dataset_path": os.path.normpath(os.path.join(os.getcwd(), "Dataset/validation")),
-        "num_mfccs": 50,  # tune.choice([20, 50, 128]),
+        "num_mfccs": 20,  # tune.choice([20, 50, 128]),
         "feature_mapping_file": os.path.normpath(os.getcwd() + "/data_handling/feature_mapping.json"),
         'transformation_file': os.path.normpath(os.getcwd() + "/Dataset/transformation.json"),
 
@@ -171,15 +176,15 @@ if __name__ == "__main__":
         'shuffle_audio_files': True,
 
         # model
-        "SIREN_hidden_features": 256, #tune.choice([128, 256, 384, 512]),
-        "SIREN_hidden_layers": 5, #tune.choice([3, 5, 8]),
+        "SIREN_hidden_features": 384,  # tune.choice([128, 256, 384, 512]),
+        "SIREN_hidden_layers": 3,  # tune.choice([3, 5, 8]),
         "SIREN_use_harmonic_embedding": True,
-        "SIREN_num_harmonic_functions": tune.choice([30, 50, 80, 100]),
-        "MODULATION_Type": tune.choice([MappingType.Mult_Networks_One_Dimension_For_Each_Layer]),
-        "MODULATION_hidden_features": 128, #tune.choice([128, 256, 384, 512]),
-        "MODULATION_hidden_layers": 5, #tune.choice([3, 5, 8]),
-        "MODULATION_use_harmonic_embedding": tune.choice([True, False]),
-        "MODULATION_num_harmonic_functions": tune.choice([2, 4, 6]),
+        "SIREN_num_harmonic_functions": 50,  # tune.choice([30, 50, 80, 100]),
+        "MODULATION_Type": MappingType.Mult_Networks_One_Dimension_For_Each_Layer,  # tune.choice(list(MappingType)),
+        "MODULATION_hidden_features": 384,  # tune.choice([128, 256, 384, 512]),
+        "MODULATION_hidden_layers": 8,  # tune.choice([3, 5, 8]),
+        "MODULATION_use_harmonic_embedding": True,  # tune.choice([True, False]),
+        "MODULATION_num_harmonic_functions": 2,  # tune.choice([2, 4, 6]),
 
         # training
         "lr": 5e-05, #tune.choice([0.00005, 0.000075, 0.0001]),
@@ -207,10 +212,12 @@ if __name__ == "__main__":
         metric="eval_loss",
         mode="min",
         max_t=max_num_epochs,
-        grace_period=5,
-        reduction_factor=2)
+        grace_period=8,
+        reduction_factor=1.5)
     reporter = CLIReporter(
         metric_columns=["eval_loss", "training_iteration"])
+    experiment_datetime = datetime.now()
+    print(experiment_datetime)
     result = tune.run(
         train,
         resources_per_trial={"cpu": 1, "gpu": gpus_per_trial},
@@ -228,3 +235,23 @@ if __name__ == "__main__":
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["eval_loss"]))
+
+    # analysis
+    checkpoint_dir = Path('./Checkpoints')
+    experiment_path = nearest_experiment_path(checkpoint_dir, experiment_datetime)
+    experiment_name = os.path.basename(experiment_path)
+    default_excluded_fields = ['eval_vid', 'train_vid', 'time_this_iter_s', 'done', 'timesteps_total',
+                               'episodes_total', 'trial_id', 'experiment_id', 'date', 'timestamp', 'pid', 'hostname',
+                               'node_ip', 'config', 'time_since_restore', 'timesteps_since_restore',
+                               'iterations_since_restore', 'warmup_time', 'transformation_file',
+                               'training_dataset_path', 'validation_dataset_path', 'feature_mapping_file']
+
+    analysis = RayTuneAnalysis(checkpoint_dir, experiment_names=[experiment_name],
+                               excluded_fields=default_excluded_fields)
+    table_view = RayTuneAnalysisTableView(analysis)
+
+    text = table_view.statistics_table + '\n\n\n' + table_view.config_analysis_table + '\n\n\n'
+    text += 'Best Trial Path: ' + best_trial_path(experiment_path)
+
+    analysis_file = experiment_path / 'analysis.txt'
+    write_textfile(text, analysis_file)

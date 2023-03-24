@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from parameterized import parameterized
 
-from util.checkpoint_helper import latest_experiment_path, experiment_datetime
+from util.checkpoint_helper import latest_experiment_path, experiment_datetime, nearest_experiment_path
 
 
 class CheckpointHelperTest(TestCase):
@@ -37,7 +37,8 @@ class CheckpointHelperTest(TestCase):
 
     @patch('util.checkpoint_helper.os.path.isdir')
     @patch('util.checkpoint_helper.files_in_directory')
-    def test_latest_experiment_path(self, files_in_directory_mock, os_isdir_mock):
+    def test_latest_experiment_path__valid_files__returns_path_of_latest_experiment(self, files_in_directory_mock,
+                                                                                    os_isdir_mock):
         experiments = [
             'C:\\train_2022-07-09_00-36-10',
             'C:\\train_2023-03-13_12-20-23',
@@ -50,3 +51,23 @@ class CheckpointHelperTest(TestCase):
         path = latest_experiment_path('C:\\')
 
         self.assertEqual(path, 'C:\\train_2023-03-13_12-20-23')
+
+    @patch('util.checkpoint_helper.os.path.isdir')
+    @patch('util.checkpoint_helper.files_in_directory')
+    def test_nearest_experiment_path__valid_files_returns_path_of_nearest_experiment(self, files_in_directory_mock,
+                                                                                     os_isdir_mock):
+        experiments = [
+            'C:\\train_2022-07-09_00-36-10',
+            'C:\\train_2023-03-13_12-20-23',
+            'C:\\train_2023-02-11_20-49-09',
+            'C:\\train_2023-03-06_21-44-07',
+        ]
+
+        files_in_directory_mock.return_value = experiments
+        os_isdir_mock.return_value = True
+
+        date = datetime.datetime(year=2023, month=3, day=7, hour=10, minute=20, second=56)
+        path = nearest_experiment_path('C:\\', date)
+
+        self.assertEqual(path, 'C:\\train_2023-03-06_21-44-07')
+

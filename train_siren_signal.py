@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -11,8 +13,11 @@ from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDatasetForSignal
+from ray_result_analyzer import RayTuneAnalysis, RayTuneAnalysisTableView
 from util.array_helper import signal_to_image
 from model.SirenModel import MappingType, SirenModelWithFiLM
+from util.checkpoint_helper import nearest_experiment_path, best_trial_path
+from util.data_helper import write_textfile
 
 
 def get_log_cosh_loss(prediction, target):
@@ -237,6 +242,8 @@ if __name__ == "__main__":
         reduction_factor=1.5)
     reporter = CLIReporter(
         metric_columns=["eval_loss", "training_iteration"])
+    experiment_datetime = datetime.now()
+    print(experiment_datetime)
     result = tune.run(
         train,
         resources_per_trial={"cpu": 1, "gpu": gpus_per_trial},
@@ -254,3 +261,23 @@ if __name__ == "__main__":
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["eval_loss"]))
+
+    # analysis
+    checkpoint_dir = Path('./Checkpoints')
+    experiment_path = nearest_experiment_path(checkpoint_dir, experiment_datetime)
+    experiment_name = os.path.basename(experiment_path)
+    default_excluded_fields = ['eval_vid', 'train_vid', 'time_this_iter_s', 'done', 'timesteps_total',
+                               'episodes_total', 'trial_id', 'experiment_id', 'date', 'timestamp', 'pid', 'hostname',
+                               'node_ip', 'config', 'time_since_restore', 'timesteps_since_restore',
+                               'iterations_since_restore', 'warmup_time', 'transformation_file',
+                               'training_dataset_path', 'validation_dataset_path', 'feature_mapping_file']
+
+    analysis = RayTuneAnalysis(checkpoint_dir, experiment_names=[experiment_name],
+                               excluded_fields=default_excluded_fields)
+    table_view = RayTuneAnalysisTableView(analysis)
+
+    text = table_view.statistics_table + '\n\n\n' + table_view.config_analysis_table + '\n\n\n'
+    text += 'Best Trial Path: ' + best_trial_path(experiment_path)
+
+    analysis_file = experiment_path / 'analysis.txt'
+    write_textfile(text, analysis_file)

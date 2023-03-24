@@ -30,6 +30,19 @@ def latest_experiment_path(checkpoint_dir):
     return latest_experiment_path
 
 
+def nearest_experiment_path(checkpoint_dir, datetime):
+    checkpoint_files = files_in_directory(checkpoint_dir)
+    checkpoint_files = [file for file in checkpoint_files if os.path.isdir(file)]
+    dates = [experiment_datetime(os.path.basename(path)) for path in checkpoint_files]
+
+    date_path_tuples = zip(dates, checkpoint_files)
+    date_path_tuples = [(date, path) for date, path in date_path_tuples if date is not None]
+
+    nearest_experiment_path = min(date_path_tuples, key=lambda x: abs(x[0] - datetime))[1]
+
+    return nearest_experiment_path
+
+
 def all_trial_paths(experiment_dir, trial_name_pattern=r'train_.{5}_\d{5}'):
     trial_file_names = ['checkpoint', 'params.json', 'params.pkl', 'progress.csv', 'result.json']
 
