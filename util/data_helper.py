@@ -41,6 +41,12 @@ def read_textfile(textfile, mode='text', encoding='utf-8'):
     return text
 
 
+def write_textfile(text, textfile, encoding='utf-8'):
+    f = open(textfile, 'w', encoding=encoding)
+    f.write(text)
+    f.close()
+
+
 def read_jsonfile(path) -> dict:
     f = open(path, 'r')
     obj = json.load(f)
