@@ -105,8 +105,8 @@ def train(config):
             # image for tensorboard
             if i == len(train_dataset_loader) - 1:
                 size = prediction.size()
-                pred_img = prediction.view_class(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
-                gt_img = spectrogram.view_class(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                pred_img = prediction.view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                gt_img = spectrogram.view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
                 train_prediction_img = np.concatenate([pred_img, gt_img], axis=-1)
                 train_prediction_img = map_numpy_values(train_prediction_img, (0, 1), current_range=(-1, 1))
 
@@ -159,7 +159,7 @@ def train(config):
 
 if __name__ == "__main__":
     # ray config
-    num_trials = 20
+    num_trials = 10
     max_num_epochs = 100
     gpus_per_trial = 1
 
