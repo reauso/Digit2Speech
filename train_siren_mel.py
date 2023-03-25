@@ -212,7 +212,7 @@ if __name__ == "__main__":
         metric="eval_loss",
         mode="min",
         max_t=max_num_epochs,
-        grace_period=8,
+        grace_period=100,
         reduction_factor=1.5)
     reporter = CLIReporter(
         metric_columns=["eval_loss", "training_iteration"])
@@ -253,5 +253,5 @@ if __name__ == "__main__":
     text = table_view.statistics_table + '\n\n\n' + table_view.config_analysis_table + '\n\n\n'
     text += 'Best Trial Path: ' + best_trial_path(experiment_path)
 
-    analysis_file = experiment_path / 'analysis.txt'
+    analysis_file = os.path.join(experiment_path, 'analysis.txt')
     write_textfile(text, analysis_file)
