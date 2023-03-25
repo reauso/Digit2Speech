@@ -8,7 +8,7 @@ from typing import List
 
 import numpy as np
 
-from util.checkpoint_helper import latest_experiment_path, trial_short_name, all_trial_paths
+from util.checkpoint_helper import latest_experiment_path, trial_short_name, all_trial_paths, best_trial_path
 from util.data_helper import files_in_directory, read_textfile, read_jsonfile, write_textfile
 
 
@@ -91,6 +91,10 @@ class RayTuneAnalysis:
             for config_field, config_value in trial['config'].items():
                 for result_field, result_value in trial['result'].items():
                     self._config_analysis[config_field][config_value][result_field].append(result_value)
+
+    @property
+    def experiment_paths(self):
+        return self._experiment_paths
 
     @property
     def statistics(self):
@@ -346,8 +350,8 @@ class RayTuneAnalysisTableView:
 if __name__ == "__main__":
     # config
     checkpoint_dir = os.path.join(os.getcwd(), 'Checkpoints')
-    # experiment_names = 'latest_only'
-    experiment_names = ['train_2023-03-23_02-03-43 MELSIREN Beatrice Digit 0 wPE']
+    experiment_names = []
+    experiment_names = 'latest_only'
     default_excluded_fields = ['eval_vid', 'train_vid', 'time_this_iter_s', 'done', 'timesteps_total',
                                'episodes_total', 'trial_id', 'experiment_id', 'date', 'timestamp', 'pid', 'hostname',
                                'node_ip', 'config', 'time_since_restore', 'timesteps_since_restore',
@@ -359,3 +363,13 @@ if __name__ == "__main__":
     table_view = RayTuneAnalysisTableView(analysis)
     print(table_view.statistics_table)
     print(table_view.config_analysis_table)
+
+    # save to file if it is a single experiment
+    experiment_paths = analysis.experiment_paths
+    if isinstance(experiment_paths, list) and len(experiment_paths) == 1:
+        experiment_path = experiment_paths[0]
+        text = table_view.statistics_table + '\n\n\n' + table_view.config_analysis_table + '\n\n\n'
+        text += 'Best Trial Path: ' + best_trial_path(experiment_path)
+
+        analysis_file = os.path.join(experiment_path, 'analysis.txt')
+        write_textfile(text, analysis_file)
