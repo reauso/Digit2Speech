@@ -12,7 +12,7 @@ from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDatasetForSpectrograms
-from ray_result_analyzer import RayTuneAnalysis, RayTuneAnalysisTableView
+from ray_result_analyzer import RayTuneAnalysis, TextTableView
 from util.array_helper import map_numpy_values
 from model.SirenModel import SirenModelWithFiLM, MappingType
 from model.loss import CombinedLoss
@@ -105,8 +105,8 @@ def train(config):
             # image for tensorboard
             if i == len(train_dataset_loader) - 1:
                 size = prediction.size()
-                pred_img = prediction.view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
-                gt_img = spectrogram.view(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                pred_img = prediction.view_class(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
+                gt_img = spectrogram.view_class(1, 1, 1, size[1], size[2]).detach().cpu().numpy()
                 train_prediction_img = np.concatenate([pred_img, gt_img], axis=-1)
                 train_prediction_img = map_numpy_values(train_prediction_img, (0, 1), current_range=(-1, 1))
 
@@ -248,9 +248,9 @@ if __name__ == "__main__":
 
     analysis = RayTuneAnalysis(checkpoint_dir, experiment_names=[experiment_name],
                                excluded_fields=default_excluded_fields)
-    table_view = RayTuneAnalysisTableView(analysis)
+    table_view = TextTableView(analysis)
 
-    text = table_view.statistics_table + '\n\n\n' + table_view.config_analysis_table + '\n\n\n'
+    text = table_view.statistics_view + '\n\n\n' + table_view.config_analysis_view + '\n\n\n'
     text += 'Best Trial Path: ' + best_trial_path(experiment_path)
 
     analysis_file = os.path.join(experiment_path, 'analysis.txt')

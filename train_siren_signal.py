@@ -13,7 +13,7 @@ from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 
 from data_handling.Dataset import DigitAudioDatasetForSignal
-from ray_result_analyzer import RayTuneAnalysis, RayTuneAnalysisTableView
+from ray_result_analyzer import RayTuneAnalysis, TextTableView
 from util.array_helper import signal_to_image
 from model.SirenModel import MappingType, SirenModelWithFiLM
 from util.checkpoint_helper import nearest_experiment_path, best_trial_path
@@ -274,9 +274,9 @@ if __name__ == "__main__":
 
     analysis = RayTuneAnalysis(checkpoint_dir, experiment_names=[experiment_name],
                                excluded_fields=default_excluded_fields)
-    table_view = RayTuneAnalysisTableView(analysis)
+    table_view = TextTableView(analysis)
 
-    text = table_view.statistics_table + '\n\n\n' + table_view.config_analysis_table + '\n\n\n'
+    text = table_view.statistics_view + '\n\n\n' + table_view.config_analysis_view + '\n\n\n'
     text += 'Best Trial Path: ' + best_trial_path(experiment_path)
 
     analysis_file = os.path.join(experiment_path, 'analysis.txt')
