@@ -8,10 +8,12 @@ The project is structured as follows:
 - The `data_handling` folder is a python module to expose the dataset and data loaders, providing functions for pre-processing and some utilities.
 - The `model` folder contains the neural network implementations.
 - The `docs` folder contains the markdown and more files for documentation.
+- The `analysis` folder contains the Scripts for an Experiment Analysis.
 - In the root project folder, there are some python files with main functions:
   - `preprocessing.py` runs the required preprocessing steps
   - `train_siren_mel.py` and `train_siren_signal.py` each start a training process for a Mel Siren and signal Siren respectively.
   - Likewise, `inference_mel.py` and `inference_signal.py` both generate images and audio based on validation files using pre trained checkpoints.
+  - The `ray_result_analyzer.py` Scipt starts a manual Analysis of an Experiment and shows all Trials with the resulting metrics and the influence of each config to the metric scores.
 
 To run any code, first install all required dependencies with `pip install -r requirements.txt`.
 
@@ -38,5 +40,9 @@ To generate audio files using pre-trained models, first the models have to be do
 - Create a folder `Checkpoints` and paste the folder from the archive in it.
 - Run `python inference_mel.py` or `python inference_signal.py`. You can also pass in custom directories, see usage reference with `python inference_mel.py --help` or `python inference_signal.py --help` for more info.
 - Per default generated files are saved to a new folder `GeneratedAudio`.
+
+## Analysis
+
+Run 'python ray_result_analyzer.py' to create an Analysis of one or multiple Experiment. Note that this Script does not support the argparse package so that you have to configurate it in the Script itself.
 
 [➡️ References](./references.md)
