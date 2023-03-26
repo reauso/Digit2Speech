@@ -33,4 +33,6 @@ In order to prepare all the data for the training, a set of functions merged int
 
 5. Pad audio to 2 seconds ([pad.py](../data_handling/preprocessing/pad.py))
 
+   Some of the heidelberg data might be shorter than 2 seconds. To make sure that all audio files are of the same length, they are padded with zeros to 2 seconds.
+
 [➡️ Concepts and architectures](./concepts-and-architectures.md)
