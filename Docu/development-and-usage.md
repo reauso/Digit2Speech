@@ -45,4 +45,4 @@ To generate audio files using pre-trained models, first the models have to be do
 
 Run 'python ray_result_analyzer.py' to create an Analysis of one or multiple Experiment. Note that this Script does not support the argparse package so that you have to configurate it in the Script itself.
 
-[➡️ References](./references.md)
+[➡️ Future Work](./future-work.md)

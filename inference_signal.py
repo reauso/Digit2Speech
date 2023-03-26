@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from data_handling.Dataset import DigitAudioDatasetForSignal, DigitAudioDatasetForSpectrograms
 from util.checkpoint_helper import latest_experiment_path, best_trial_path
-from util.array_helper import signal_to_image, print_numpy_stats
+from util.array_helper import signal_to_image, print_numpy_stats, print_tensor_stats
 from util.data_helper import read_textfile
 from model.SirenModel import MappingType, SirenModelWithFiLM
 
@@ -79,8 +79,11 @@ if __name__ == "__main__":
     # create dataset
     validation_dataset = DigitAudioDatasetForSignal(
         path=args.source_dir,
+        audio_sample_coverage=1.0,
+        shuffle_audio_samples=False,
         num_mfcc=model_config['num_mfccs'],
         feature_mapping_file=args.feature_mapping_file,
+        transformation_file=model_config['transformation_file'],
     )
     validation_dataset_loader = DataLoader(validation_dataset, batch_size=1, pin_memory=True, prefetch_factor=10,
                                            shuffle=False, num_workers=4, drop_last=False)
@@ -95,9 +98,8 @@ if __name__ == "__main__":
     pipeline = tqdm(validation_dataset_loader, unit='Files', desc='Generate Audio Files')
     for i, data_pair in enumerate(pipeline):
         # get batch data
-        metadata, raw_metadata, _, _ = data_pair
-        sample_indices = torch.arange(start=0.0, end=args.sample_rate * 2, step=1, device=device, requires_grad=False)
-        sample_indices = sample_indices[:, None]
+        metadata, raw_metadata, _, sample_indices = data_pair
+        sample_indices = torch.transpose(sample_indices, 1, 0)
         raw_metadata = {key: value[0] for key, value in raw_metadata.items()}
 
         # tensors to device

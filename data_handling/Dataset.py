@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import torch
 
-from util.array_helper import map_numpy_values, normalize_tensor, object_to_float_tensor, print_tensor_stats
+from util.array_helper import normalize_tensor, object_to_float_tensor
 from util.data_helper import files_in_directory, read_textfile, get_metadata_from_file_name
 
 

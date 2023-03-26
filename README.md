@@ -13,4 +13,5 @@ The documentation is structured into subpages further explaining the correspondi
    - [Siren (raw signal)](Docu/concepts-and-architectures.md#siren_signal)
    - [Siren (mel spectrogram)](Docu/concepts-and-architectures.md#siren_mel)
 5. [Development and usage](Docu/development-and-usage.md)
-6. [References](Docu/references.md)
+6. [Future Work](Docu/future-work.md)
+7. [References](Docu/references.md)

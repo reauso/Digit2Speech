@@ -9,14 +9,14 @@ The generator is expected to generate an audio from the following metadata (i.e.
 - gender (male, female)
 - style.
 
-Given some metadata, the neural network should be able to generate a fitting audio file. [Fig. 1](#interface) shows the interface of the model with its input and output.
+Given some metadata, the neural network should be able to generate a fitting audio file. [Fig. 1.1](#interface) shows the interface of the model with its input and output.
 
 <figure>
   <img
   id="interface"
   src="./figures-interface.png"
   alt="Interface of the digit generator illustrating the inputs and outputs. Metadata is provided to a blackbox deep learning network which generates an audio of a spoken digit">
-  <figcaption>Fig. 1: Interface of the digit generator</figcaption>
+  <figcaption>Fig. 1.1: Interface of the digit generator</figcaption>
 </figure>
 
 <br>

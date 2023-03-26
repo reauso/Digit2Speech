@@ -10,12 +10,19 @@ In order to prepare all the data for the training, a set of functions merged int
   id="figures-audio-preprocessing"
   src="./figures-preprocessing-pipline.png"
   alt="">
-  <figcaption>Fig. 2: Preprocessing of audio files for training and validation</figcaption>
+  <figcaption>Fig. 2.1: Preprocessing of audio files for training and validation</figcaption>
 </figure>
 
 1. Split audio of 60 seconds ([split_audio_signals.py](../data_handling/preprocessing/split_audio_signals.py))
 
-   In this optional phase, the recorded audio files are analyzed and split into 2 seconds long snippets. This is used for the newly recorded audio files.
+   In this optional phase, the recorded audio files are analyzed and split into 2 seconds long snippets. This is used for the newly recorded audio files. During splitting, we try to find the midpoint of each trial and add a 1 sec padding to each side, so that the resulting audio is two seconds long. Figure 2.2 visualizes this approach. 
+   <figure>
+     <img
+     id="figures-split-audio"
+     src="./figures-split-audio.png"
+     alt="">
+     <figcaption>Fig. 2.2: Audio Splitting Visualization. The Midpoint of a Trial as green line, the 1 sec padding from the outer midpoint as red lines and the 1 sec padding of the inner midpoint as purple line.</figcaption>
+   </figure>
 
 2. Split training / validation data ([train_val_split.py](../data_handling/preprocessing/train_val_split.py))
 
@@ -33,6 +40,6 @@ In order to prepare all the data for the training, a set of functions merged int
 
 5. Pad audio to 2 seconds ([pad.py](../data_handling/preprocessing/pad.py))
 
-   Some of the heidelberg data might be shorter than 2 seconds. To make sure that all audio files are of the same length, they are padded with zeros to 2 seconds.
+   Because we do not assume that every given audio file is exactly 2 seconds long, we add a padding to those files which are less than 2 seconds long to fill up the difference.
 
 [➡️ Concepts and architectures](./concepts-and-architectures.md)
