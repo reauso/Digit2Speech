@@ -30,6 +30,8 @@ For both training and inference (at least using validation files), data inside a
 Please note that for training a model, training and validation files are needed.
 
 Run `python train_siren_mel.py` or `python train_siren_signal.py`. This starts ray and trains multiple configurations at once.
+This is usefull for Hyperparameter tuning.
+At the end of the training process we save an analysis.txt with the results of each trial and an overall analysis of each configuration value in the according experiment directory.
 
 ## Inference
 
