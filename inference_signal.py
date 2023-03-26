@@ -68,6 +68,10 @@ if __name__ == "__main__":
         mod_features=model_config['MODULATION_hidden_features'],
         mod_hidden_layers=model_config['MODULATION_hidden_layers'],
         modulation_type=MappingType(model_config['MODULATION_Type']),
+        use_harmonic_embedding=model_config['SIREN_use_harmonic_embedding'],
+        num_harmonic_functions=model_config['SIREN_num_harmonic_functions'],
+        use_mod_harmonic_embedding=model_config['MODULATION_use_harmonic_embedding'],
+        num_mod_harmonic_functions=model_config['MODULATION_num_harmonic_functions'],
     )
     model = torch.nn.DataParallel(model) if torch.cuda.device_count() > 1 else model
     model.to(device)
